@@ -71,7 +71,20 @@ if check_password():
                 sym = str(t).strip().upper()
                 if typ == "Krypto" and "-USD" not in sym:
                     sym = f"{sym}-USD"
-                p_dict[t.lower()] = yf.Ticker(sym).fast_info.last_price
+                
+                ticker_obj = yf.Ticker(sym)
+                info = ticker_obj.fast_info
+                current_price = info.last_price
+                currency = info.currency # Hier prüfen wir die Währung (z.B. HKD, EUR)
+
+                # Falls die Währung nicht USD ist, rechnen wir um
+                if currency != "USD":
+                    # Wir holen den Wechselkurs, z.B. HKDUSD=X
+                    rate_ticker = f"{currency}USD=X"
+                    rate = yf.Ticker(rate_ticker).fast_info.last_price
+                    current_price = current_price * rate
+                
+                p_dict[t.lower()] = current_price
             except:
                 p_dict[t.lower()] = 0.0
         return p_dict
