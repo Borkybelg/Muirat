@@ -1,0 +1,52 @@
+git pull origin main --rebase
+git push -u origin main
+git pull origin main --allow-unrelated-histories
+
+
+
+
+daten aktualisieren 
+
+2. Das letzte Mal hochladen (CMD)
+Damit diese Version jetzt auf GitHub und Streamlit Cloud landet:
+
+CMD öffnen im Ordner C:\Users\cakar\Desktop\Portfolio.
+
+Dateien hinzufügen:
+
+DOS
+git add .
+Änderung bestätigen:
+
+DOS
+git commit -m "Final Version: All fixes and Category Metrics included"
+Hochladen:
+
+DOS
+git push origin main
+
+---------------------
+Jetzt final in der CMD hochladen:
+git add .
+
+git commit -m "Fix Indentation and duplicates"
+
+git push origin main
+--------------------
+
+Hier ist eine kurze Übersicht, was du jetzt jederzeit tun kannst, um das Projekt aktuell zu halten:
+
+Deine "Routine" für Updates:
+Wann immer du eine Kleinigkeit im Code änderst (z. B. einen neuen Ticker im Markt-Monitor hinzufügen), nutzt du diese drei Befehle in der CMD:
+
+git add . (Alles für den Upload vorbereiten)
+
+git commit -m "Name der Änderung" (Notiz für dich selbst)
+
+git push origin main (Alles live schalten)
+
+---------------------
+curency
+git add .
+git commit -m "Fixed Indentation and HKD currency conversion"
+git push origin main
