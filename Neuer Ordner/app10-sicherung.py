@@ -93,10 +93,7 @@ if check_password():
     st.title("🚀 Investment Zentrale Pro")
 
     # 2. MARKT MONITOR
-    m_tickers = {"DAX": "^GDAXI", "FTSE 100": "^FTSE", "S&P 500": "^GSPC", "Nasdaq": "^NDX",
-    "Gold": "GC=F", "Silber": "SI=F", "Brent Öl": "BZ=F", 
-    "BTC": "BTC-USD", "ETH": "ETH-USD", "SOL": "SOL-USD"
-}
+    m_tickers = {"S&P 500": "^GSPC", "Nasdaq 100": "^NDX", "DAX": "^GDAXI", "BTC": "BTC-USD"}
     cols = st.columns(len(m_tickers))
     for i, (n, s) in enumerate(m_tickers.items()):
         try:
