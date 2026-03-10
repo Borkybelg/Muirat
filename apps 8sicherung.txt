@@ -14,8 +14,8 @@ history_file = "history.csv"
 
 # --- 1. PASSWORT-LOGIK ---
 def password_entered():
-    # Ändere "deinneuespasswort" in das, was du haben willst
-    if st.session_state["password"].strip().lower() == "71287128":
+    # .strip() entfernt Leerzeichen, .lower() macht alles klein (einfacher am Handy)
+    if st.session_state["password"].strip().lower() == "pa":
         st.session_state["password_correct"] = True
         st.session_state["password"] = "" 
     else:
