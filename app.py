@@ -12,45 +12,42 @@ from streamlit.web.server.websocket_headers import _get_websocket_headers
 
 import streamlit as st
 
-def check_password():
-    # --- AUTOMATISCHER PC-CHECK (MODERNE VERSION) ---
-    # Wir schauen in die Header der aktuellen Verbindung
-    host = st.context.headers.get("host", "")
-    
-    # Wenn "localhost" in der Adresse steht, bist du am PC -> Sofort durchlassen
-    if "localhost" in host or "127.0.0.1" in host:
-        return True
-
-    # --- PASSWORT-LOGIK FÜR HANDY / EXTERN ---
-    if "password_correct" not in st.session_state:
-        st.title("🔐 Sicherer Zugriff")
-        st.info("Mobiler Zugriff erkannt. Bitte Passwort eingeben.")
-        st.text_input("Passwort:", type="password", on_change=password_entered, key="password")
-        return False
-    elif not st.session_state["password_correct"]:
-        st.text_input("Passwort:", type="password", on_change=password_entered, key="password")
-        st.error("❌ Passwort falsch!")
-        return False
-    else:
-        return True
-
-def password_entered():
-    # Hier dein Passwort festlegen
-    if st.session_state["password"] == "password":
+ddef password_entered():
+    # Wir nutzen .strip(), um versehentliche Leerzeichen am Ende zu entfernen
+    if st.session_state["password"].strip() == "pa":
         st.session_state["password_correct"] = True
-        del st.session_state["password"]
+        # Passwort aus dem Speicher löschen für die Sicherheit
+        st.session_state["password"] = "" 
     else:
         st.session_state["password_correct"] = False
 
-# --- DEINE APP STARTET HIER ---
+def check_password():
+    # Lokaler Zugriff (PC) wird sofort durchgelassen
+    host = st.context.headers.get("host", "")
+    if "localhost" in host or "127.0.0.1" in host:
+        return True
+
+    # Wenn Passwort schon mal richtig eingegeben wurde -> True
+    if st.session_state.get("password_correct", False):
+        return True
+
+    # Login-Maske anzeigen
+    st.title("🔐 Sicherer Zugriff")
+    st.info("Bitte Passwort eingeben, um Murats Portfolio zu sehen.")
+    
+    # Das Textfeld
+    st.text_input("Passwort:", type="password", on_change=password_entered, key="password")
+
+    # Fehlermeldung zeigen, wenn es falsch war
+    if "password_correct" in st.session_state and not st.session_state["password_correct"]:
+        st.error("❌ Passwort falsch! Bitte achte auf Groß- und Kleinschreibung.")
+    
+    return False
+
+# --- WICHTIG: DIE APP STARTET SO ---
 if check_password():
-    st.title("🚀 Mein Portfolio")
-    # Hier kommt dein restlicher Code hin (eingerückt!)
-    st.write("Willkommen! Am PC ohne Passwort, am Handy mit Passwort.")
-    # Hier kannst du deinen alten Code (Tabellen, Charts etc.) einrücken!
-
-
-st.divider()
+    # HIER kommen deine 300 Zeilen Code hin (alle eine Ebene eingerückt!)
+    st.write("Willkommen zurück, Murat!")
 
 # --- KONFIGURATION ---
 filename = "portfolio.csv" 
