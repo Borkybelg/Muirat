@@ -49,14 +49,6 @@ if check_password():
     st.write("Willkommen! Am PC ohne Passwort, am Handy mit Passwort.")
     # Hier kannst du deinen alten Code (Tabellen, Charts etc.) einrücken!
 
-# --- App-Design für die Hosentasche ---
-col1, col2 = st.columns(2)
-
-with col1:
-    st.metric(label="Portfolio Wert", value="12.450 €", delta="+2.5%")
-
-with col2:
-    st.metric(label="Krypto Stand", value="0.45 BTC", delta="-0.12%", delta_color="normal")
 
 st.divider()
 
