@@ -12,7 +12,17 @@ from streamlit.web.server.websocket_headers import _get_websocket_headers
 
 import streamlit as st
 
-ddef password_entered():
+
+
+# ... (Importe und Passwort-Funktionen ganz oben)
+
+if check_password():
+    # AB HIER MUSS ALLES EINGERÜCKT SEIN!
+    st.title("🚀 Murats Investment Zentrale")
+    
+    # Deine Berechnungen, Metriken und Tabellen...
+    # Jede einzelne Zeile muss hier 4 Leerzeichen (1 Tab) vom Rand weg sein.
+    ddef password_entered():
     # Wir nutzen .strip(), um versehentliche Leerzeichen am Ende zu entfernen
     if st.session_state["password"].strip() == "pa":
         st.session_state["password_correct"] = True
@@ -259,3 +269,6 @@ with st.expander("➕ Neues Asset hinzufügen"):
         nm = c2.number_input("Menge", min_value=0.0)
         np = c3.number_input("Kaufpreis", min_value=0.0)
         nty = c4.selectbox
+    
+    df_base = load_data()
+    # ... und so weiter
