@@ -1,0 +1,15 @@
+2. CoinMarketCap API einbinden (Für Preise)
+Wenn du einen API-Key von CoinMarketCap hast, kannst du die Preise viel genauer abfragen als mit yfinance. So integrierst du ihn in deine get_all_prices Funktion:
+
+Python
+def get_cmc_price(symbol, api_key):
+    url = "https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest"
+    parameters = {'symbol': symbol, 'convert': 'USD'}
+    headers = {'Accepts': 'application/json', 'X-CMC_PRO_API_KEY': api_key}
+    
+    try:
+        response = requests.get(url, headers=headers, params=parameters)
+        data = response.json()
+        return data['data'][symbol.upper()]['quote']['USD']['price']
+    except:
+        return None
