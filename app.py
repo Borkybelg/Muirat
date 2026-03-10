@@ -133,6 +133,29 @@ for i, (name, sym) in enumerate(m_tickers.items()):
 
 st.divider()
 
+# --- DEINE BESTEHENDEN METRIKEN (ca. Zeile 300) ---
+        m1, m2, m3 = st.columns(3)
+        m1.metric("Portfolio Wert", f"{total_val:,.2f} $")
+        m2.metric("Investiert", f"{total_invest:,.2f} $")
+        m3.metric("Gewinn/Verlust", f"{total_profit:,.2f} $", f"{(total_profit/total_invest*100):+.2f}%")
+        
+        st.divider()
+
+        # --- NEU: HIER DIE DIAGRAMME EINFÜGEN ---
+        st.write("### 📊 Verteilung")
+        c1, c2 = st.columns(2)
+        with c1:
+            fig1 = px.pie(df, values='Wert', names='ticker', hole=0.4, title="Nach Assets")
+            st.plotly_chart(fig1, use_container_width=True)
+        with c2:
+            fig2 = px.pie(df, values='Wert', names='typ', hole=0.4, title="Nach Klassen")
+            st.plotly_chart(fig2, use_container_width=True)
+
+        st.divider()
+        
+        # --- DANACH KOMMEN DEINE TABS ---
+        t1, t2, t3 = st.tabs(["📊 Assets", "📈 Details", "📜 Historie"])
+
 # --- 3. FEAR & GREED (GAUGES) ---
 @st.cache_data(ttl=1800)
 def get_fng_data():
