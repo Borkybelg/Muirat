@@ -48,15 +48,14 @@ if check_password():
         st.divider()
         st.info("Einklappen mit '>' oben links.")
 
-    # DATEN-FUNKTIONEN
+    # --- DATEN-FUNKTIONEN ---
     def load_data():
-        # Hier muss "name" in die Liste!
+        # 1. HIER WURDE "NAME" HINZUGEFÜGT
         cols = ["ticker", "name", "menge", "kaufpreis", "typ"] 
         if not os.path.exists(filename) or os.stat(filename).st_size == 0:
             return pd.DataFrame(columns=cols)
         try:
             df = pd.read_csv(filename)
-            # Falls "name" in einer alten Datei fehlt, fügen wir es hinzu
             if "name" not in df.columns:
                 df["name"] = df["ticker"]
             return df[cols]
@@ -65,17 +64,16 @@ if check_password():
 
     def save_data(df_to_save):
         if df_to_save is not None:
-            # Auch hier "name" sicherstellen
+            # Sicherstellen, dass alle Spalten inklusive name gespeichert werden
             cols = ["ticker", "name", "menge", "kaufpreis", "typ"]
-            df_to_save = df_to_save[cols]
-            df_to_save.to_csv(filename, index=False)
+            for c in cols:
+                if c not in df_to_save.columns: df_to_save[c] = ""
+            df_to_save[cols].to_csv(filename, index=False)
+
     def load_history():
         if not os.path.exists(history_file) or os.stat(history_file).st_size == 0:
             return pd.DataFrame(columns=["datum", "ticker", "menge", "ek", "vk", "gewinn"])
         return pd.read_csv(history_file)
-
-    def save_data(df_to_save):
-        df_to_save.to_csv(filename, index=False)
 
     def add_to_history(ticker, menge, ek, vk):
         h_df = load_history()
@@ -110,7 +108,7 @@ if check_password():
     st.title(f"🚀 Investment Zentrale Pro ({base_currency})")
 
     # --- 4. MARKT MONITOR ---
-    st.title("🚀 Global Market Watch")
+    st.subheader("📊 Global Market Watch")
     m_tickers = {
         "DAX": "^GDAXI", "S&P 500": "^GSPC", "Dow Jones": "^DJI", "Nasdaq": "^NDX",
         "MDAX": "^MDAXI", "SDAX": "^SDAXI", "TecDAX": "^TECDAX", "Russell 2k": "^RUT",
@@ -138,7 +136,7 @@ if check_password():
         df['Profit_T'] = df['Wert_T'] - df['Invest_T']
         df['Profit_%'] = (df['Profit_T'] / df['Invest_T'] * 100).fillna(0)
 
-        # GESAMT METRIKEN (MIT FARBE)
+        # GESAMT METRIKEN
         m1, m2, m3 = st.columns(3)
         m1.metric("Gesamtwert Portfolio", f"{df['Wert_T'].sum():,.2f} {curr_symbol}")
         m2.metric("Gesamt Investiert", f"{df['Invest_T'].sum():,.2f} {curr_symbol}")
@@ -150,32 +148,23 @@ if check_password():
         t1, t2, t3, t4, t5 = st.tabs(["🌍 Übersicht", "📈 Aktien", "₿ Krypto", "📊 ETFs", "📜 Historie"])
         
         with t1:
-            disp_df = df[['ticker', 'typ', 'menge', 'Kurs_T', 'Wert_T', 'Profit_T', 'Profit_%', 'Orig_C']].copy()
+            # 2. ÜBERSICHT ZEIGT NUN BESCHREIBUNG
+            disp_df = df[['name', 'ticker', 'typ', 'menge', 'Kurs_T', 'Wert_T', 'Profit_T', 'Profit_%']].copy()
             disp_df['Profit_%'] = disp_df['Profit_%'].map("{:+.2f}%".format)
             st.dataframe(disp_df, use_container_width=True)
             c1, c2 = st.columns(2)
             c1.plotly_chart(px.pie(df, values='Wert_T', names='typ', title="Verteilung Klassen"), use_container_width=True)
-            c2.plotly_chart(px.pie(df, values='Wert_T', names='ticker', title="Verteilung Assets"), use_container_width=True)
+            c2.plotly_chart(px.pie(df, values='Wert_T', names='name', title="Verteilung Assets"), use_container_width=True)
 
         def show_class(category):
             sub = df[df['typ'] == category]
             if not sub.empty:
-                # KATEGORIE SUMMEN (MIT FARBE)
-                c_wert, c_inv = sub['Wert_T'].sum(), sub['Invest_T'].sum()
-                c_prof = c_wert - c_inv
-                c_perf = (c_prof / c_inv * 100) if c_inv > 0 else 0
-                
-                cm1, cm2, cm3 = st.columns(3)
-                cm1.metric(f"Wert {category}", f"{c_wert:,.2f} {curr_symbol}")
-                cm2.metric(f"Invest {category}", f"{c_inv:,.2f} {curr_symbol}")
-                cm3.metric(f"Profit {category}", f"{c_prof:,.2f} {curr_symbol}", f"{c_perf:+.2f}%")
-                st.write("---")
-
                 for idx, row in sub.iterrows():
-                    with st.expander(f"⚙️ {row['ticker'].upper()} | {row['Profit_%']:+.2f}%"):
-                        # BEARBEITEN
-                        c_n, c_q, c_e = st.columns(3)
-                        n_name = c_n.text_input("Ticker", value=row['ticker'], key=f"n_{idx}")
+                    # 3. EXPANDER ZEIGT BESCHREIBUNG IM TITEL
+                    with st.expander(f"⚙️ {row['name']} ({row['ticker'].upper()}) | {row['Profit_%']:+.2f}%"):
+                        c_n, c_name_edit, c_q, c_e = st.columns(4)
+                        n_ticker = c_n.text_input("Ticker", value=row['ticker'], key=f"n_{idx}")
+                        n_desc = c_name_edit.text_input("Beschreibung", value=row['name'], key=f"desc_{idx}")
                         n_qty = c_q.number_input("Menge", value=float(row['menge']), key=f"q_{idx}")
                         n_ek = c_e.number_input(f"EK ({row['Orig_C']})", value=float(row['kaufpreis']), key=f"e_{idx}")
                         
@@ -191,17 +180,17 @@ if check_password():
                                     df_base.loc[idx, 'menge'] -= tr_amt
                                 else:
                                     df_base.loc[idx, 'menge'] += tr_amt
-                            df_base.loc[idx, 'ticker'] = n_name.upper()
+                            df_base.loc[idx, 'ticker'] = n_ticker.upper()
+                            df_base.loc[idx, 'name'] = n_desc
                             df_base.loc[idx, 'menge'] = n_qty
                             df_base.loc[idx, 'kaufpreis'] = n_ek
                             save_data(df_base[df_base['menge'] > 0]); st.rerun()
                         if b_d.button("🗑️ Löschen", key=f"del_{idx}"):
                             save_data(df_base.drop(idx)); st.rerun()
                 
-                sub_disp = sub[['ticker', 'menge', 'Kurs_T', 'Wert_T', 'Profit_T', 'Profit_%']].copy()
+                sub_disp = sub[['name', 'ticker', 'menge', 'Kurs_T', 'Wert_T', 'Profit_T', 'Profit_%']].copy()
                 sub_disp['Profit_%'] = sub_disp['Profit_%'].map("{:+.2f}%".format)
                 st.table(sub_disp)
-            else: st.info(f"Keine {category} vorhanden.")
 
         with t2: show_class("Aktie")
         with t3: show_class("Krypto")
@@ -224,9 +213,12 @@ if check_password():
     with tc3:
         st.subheader("➕ Neu")
         with st.form("new"):
+            # 4. NEU-FORMULAR MIT BESCHREIBUNG
             nt = st.text_input("Ticker")
+            nn = st.text_input("Beschreibung (z.B. Lenovo)") 
             nm = st.number_input("Menge", min_value=0.0)
             nk = st.number_input("Kaufpreis")
             ny = st.selectbox("Typ", ["Aktie", "Krypto", "ETF"])
             if st.form_submit_button("Hinzufügen"):
-                save_data(pd.concat([df_base, pd.DataFrame([{"ticker": nt, "menge": nm, "kaufpreis": nk, "typ": ny}])], ignore_index=True)); st.rerun()
+                new_row = pd.DataFrame([{"ticker": nt.upper(), "name": nn, "menge": nm, "kaufpreis": nk, "typ": ny}])
+                save_data(pd.concat([df_base, new_row], ignore_index=True)); st.rerun()
