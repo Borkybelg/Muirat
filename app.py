@@ -50,10 +50,25 @@ if check_password():
 
     # DATEN-FUNKTIONEN
     def load_data():
+        # Hier muss "name" in die Liste!
+        cols = ["ticker", "name", "menge", "kaufpreis", "typ"] 
         if not os.path.exists(filename) or os.stat(filename).st_size == 0:
-            return pd.DataFrame(columns=["ticker", "menge", "kaufpreis", "typ"])
-        return pd.read_csv(filename)
+            return pd.DataFrame(columns=cols)
+        try:
+            df = pd.read_csv(filename)
+            # Falls "name" in einer alten Datei fehlt, fügen wir es hinzu
+            if "name" not in df.columns:
+                df["name"] = df["ticker"]
+            return df[cols]
+        except:
+            return pd.DataFrame(columns=cols)
 
+    def save_data(df_to_save):
+        if df_to_save is not None:
+            # Auch hier "name" sicherstellen
+            cols = ["ticker", "name", "menge", "kaufpreis", "typ"]
+            df_to_save = df_to_save[cols]
+            df_to_save.to_csv(filename, index=False)
     def load_history():
         if not os.path.exists(history_file) or os.stat(history_file).st_size == 0:
             return pd.DataFrame(columns=["datum", "ticker", "menge", "ek", "vk", "gewinn"])
