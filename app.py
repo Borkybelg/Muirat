@@ -94,19 +94,20 @@ if check_password():
     # --- HAUPTBEREICH ---
     st.title(f"🚀 Investment Zentrale Pro ({base_currency})")
 
-    # 2. MARKT MONITOR (VOLLSTÄNDIG)
-    st.subheader(f"📊 Globaler Markt-Überblick ({base_currency})")
+    # --- 4. MARKT MONITOR ---
+    st.title("🚀 Global Market Watch")
     m_tickers = {
-        "DAX": "^GDAXI", "MDAX": "^MDAXI", "S&P 500": "^GSPC", "Nasdaq": "^NDX", "Russel 2000": "^RUT",
-        "Gold": "GC=F", "VIX": "^VIX", "BTC": "BTC-USD", "ETH": "ETH-USD", "SOL": "SOL-USD"
+        "DAX": "^GDAXI", "S&P 500": "^GSPC", "Dow Jones": "^DJI", "Nasdaq": "^NDX",
+        "MDAX": "^MDAXI", "SDAX": "^SDAXI", "TecDAX": "^TECDAX", "Russell 2k": "^RTY",
+        "Gold": "GC=F", "Silber": "SI=F", "Brent Öl": "BZ=F", "VIX": "^VIX",
+        "BTC-EUR": "BTC-EUR", "ETH-USD": "ETH-USD", "EUR/TRY": "EURTRY=X"
     }
-    cols = st.columns(5)
-    for i, (name, symbol) in enumerate(m_tickers.items()):
+    m_cols = st.columns(5)
+    for i, (n, s) in enumerate(m_tickers.items()):
         try:
-            tick = yf.Ticker(symbol)
-            p = tick.fast_info.last_price * get_currency_rate(tick.fast_info.currency, base_currency)
-            cols[i % 5].metric(name, f"{p:,.2f} {curr_symbol}")
-        except: cols[i % 5].metric(name, "N/A")
+            val = yf.Ticker(s).fast_info.last_price
+            m_cols[i % 5].metric(n, f"{val:,.2f}")
+        except: m_cols[i % 5].metric(n, "Error")
 
     st.divider()
     df_base = load_data()
