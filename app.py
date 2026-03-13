@@ -98,7 +98,7 @@ if check_password():
     st.title("🚀 Global Market Watch")
     m_tickers = {
         "DAX": "^GDAXI", "S&P 500": "^GSPC", "Dow Jones": "^DJI", "Nasdaq": "^NDX",
-        "MDAX": "^MDAXI", "SDAX": "^SDAXI", "TecDAX": "^TECDAX", "Russell 2k": "^RTY",
+        "MDAX": "^MDAXI", "SDAX": "^SDAXI", "TecDAX": "^TECDAX", "Russell 2k": "^RUT",
         "Gold": "GC=F", "Silber": "SI=F", "Brent Öl": "BZ=F", "VIX": "^VIX",
         "BTC-EUR": "BTC-EUR", "ETH-USD": "ETH-USD", "EUR/TRY": "EURTRY=X"
     }
