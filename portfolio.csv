@@ -1,18 +1,34 @@
-ticker,menge,kaufpreis,typ
-INJ-USD,201.77,3.76,Krypto
-sui20947-usd,201.0,0.98,Krypto
-flnc,2.0,17.77,Aktie
-intc,14.0,48.31,Aktie
-ie00bm8r0j59.sg,23.0,14.08,ETF
-ie00082mobl9,16.0,17.58,ETF
-jgpi.de,24.0,23.701,ETF
-sdiv.mi,20.452,9.018,ETF
-qyldm.xd,11.981,14.188,ETF
-algo-usd,960.0,0.083628,Krypto
-aapl,0.1268,271.56,Aktie
-lyft,10.0,14.27,Aktie
-RNKA.SG,20.0,0.917,Aktie
-SBX.MU,2.0,3.19,Aktie
-U6Z.DU,6.0,16.8,Aktie
-ENS-USD,55.044,5.971,Krypto
-2018.HK,61.0,36.98,Aktie
+ticker,name,menge,kaufpreis,typ
+INJ-USD,Injective,201.77,3.76,Krypto
+SUI20947-USD,Sui,201.0,0.98,Krypto
+FLNC,Fluence Energy,2.0,17.77,Aktie
+INTC,Intel,14.0,48.31,Aktie
+IE00BM8R0J59.SG,Global X Video Games,23.0,14.08,ETF
+IE00082MOBL9,Vanguard Bond,16.0,17.58,ETF
+JGPI.DE,JPM Glbl Eq Prem Inc,24.0,23.701,ETF
+SDIV.MI,Global X SuperDiv,20.452,9.018,ETF
+QYLDM.XD,Global X Nasdaq100,11.981,14.188,ETF
+ALGO-USD,Algorand,960.0,0.083628,Krypto
+AAPL,Apple,0.1268,271.56,Aktie
+LYFT,Lyft,10.0,14.27,Aktie
+RNKA.SG,Rheinmetall,20.0,0.917,Aktie
+SBX.MU,Starbucks,2.0,3.19,Aktie
+U6Z.DU,Unity Software,6.0,16.8,Aktie
+ENS-USD,Ethereum Name Service,55.044,5.971,Krypto
+2018.HK,AAC Tech,61.0,36.98,Aktie
+0992.HK,Lenovo Group,246.0,10.01,Aktie
+FZM.MU,Freenet,56.0,3.15,Aktie
+0285.HK,BYD Electronic,48.0,35.48,Aktie
+W8V.MU,Xiaomi,202.0,0.49,Aktie
+AGNC,AGNC Investment,2.0,11.18,ETF
+UDIV.DE,Global X US Div,19.709,9.08,Aktie
+XPEV,XPeng Inc,5.427,16.37,Aktie
+0336.HK,Huabao Intl,102.0,4.06,Aktie
+UNVR.JK,Unilever Indonesia,461.0,2726.09,Aktie
+0763.HK,ZTE Corp,56.0,28.42,Aktie
+3988.HK,Bank of China,202.0,4.42,Aktie
+1515.HK,China Resources,263.0,3.52,Aktie
+0855.HK,Water Affairs,162.0,6.22,Aktie
+0371.HK,Beijing Enterprises,100.0,2.62,Aktie
+0579.HK,Beijing Energy,52.0,2.71,Aktie
+ARU.AX,Arafura Rare Earths,204.0,0.26,Aktie
