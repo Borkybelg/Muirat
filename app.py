@@ -12,7 +12,7 @@ st.set_page_config(page_title="Investment Center & Terminal", layout="wide")
 filename = "portfolio.csv"
 history_file = "history.csv"
 
-# --- CSS für professionelles Dark-Design ---
+# --- CSS Styling für Dark Mode & Design ---
 st.markdown("""
     <style>
     .block-container { padding-top: 1rem; }
@@ -42,21 +42,25 @@ def check_password():
 # --- START DER APP ---
 if check_password():
 
-    # --- DATEN-FUNKTIONEN (DEINE BAUSTEINE) ---
+    # --- DATEN-FUNKTIONEN ---
     def load_data():
         cols = ["ticker", "name", "menge", "kaufpreis", "typ"] 
         if not os.path.exists(filename) or os.stat(filename).st_size == 0:
             return pd.DataFrame(columns=cols)
-        df = pd.read_csv(filename)
-        if "name" not in df.columns: df["name"] = df["ticker"]
-        return df[cols]
+        try:
+            df = pd.read_csv(filename)
+            for c in cols:
+                if c not in df.columns: df[c] = ""
+            return df[cols]
+        except:
+            return pd.DataFrame(columns=cols)
 
     def save_data(df_to_save):
         cols = ["ticker", "name", "menge", "kaufpreis", "typ"]
         df_to_save[cols].to_csv(filename, index=False)
 
     def add_to_history(ticker, menge, ek, vk):
-        h_df = pd.read_csv(history_file) if os.path.exists(history_file) else pd.DataFrame()
+        h_df = pd.read_csv(history_file) if os.path.exists(history_file) else pd.DataFrame(columns=["datum", "ticker", "menge", "ek", "vk", "gewinn"])
         gewinn = (float(vk) - float(ek)) * float(menge)
         neu = pd.DataFrame([{"datum": datetime.now().strftime("%d.%m.%Y"), "ticker": ticker.upper(), "menge": menge, "ek": ek, "vk": vk, "gewinn": gewinn}])
         pd.concat([h_df, neu], ignore_index=True).to_csv(history_file, index=False)
@@ -71,7 +75,8 @@ if check_password():
                 t_obj = yf.Ticker(sym)
                 info = t_obj.fast_info
                 results[t.lower()] = {"price": info.last_price, "curr": info.currency}
-            except: results[t.lower()] = {"price": 0.0, "curr": "USD"}
+            except:
+                results[t.lower()] = {"price": 0.0, "curr": "USD"}
         return results
 
     # --- TRADINGVIEW FUNKTION ---
@@ -93,14 +98,14 @@ if check_password():
     # --- SIDEBAR ---
     with st.sidebar:
         st.header("⚙️ Menü")
-        base_currency = st.radio("Portfolio-Währung:", ["EUR", "USD"])
+        base_currency = st.radio("Währung:", ["EUR", "USD"])
         curr_symbol = "€" if base_currency == "EUR" else "$"
         st.divider()
-        num_charts = st.slider("Anzahl Trading-Fenster", 1, 4, 2)
+        num_charts = st.slider("Trading Fenster", 1, 4, 2)
         cols_layout = st.selectbox("Spalten-Layout", [1, 2], index=1)
 
     # ==========================================================
-    # TEIL 1: PORTFOLIO (DEIN BESTEHENDER CODE)
+    # TEIL 1: PORTFOLIO (OBEN)
     # ==========================================================
     st.title(f"🚀 Investment Zentrale Pro ({base_currency})")
     
@@ -114,16 +119,65 @@ if check_password():
         df['Profit_T'] = df['Wert_T'] - df['Invest_T']
         df['Profit_%'] = (df['Profit_T'] / df['Invest_T'] * 100).fillna(0)
 
-        # Metriken Oben
+        # Metriken
         m1, m2, m3 = st.columns(3)
         m1.metric("Gesamtwert", f"{df['Wert_T'].sum():,.2f} {curr_symbol}")
         m2.metric("Investiert", f"{df['Invest_T'].sum():,.2f} {curr_symbol}")
-        m3.metric("Gewinn/Verlust", f"{df['Profit_T'].sum():,.2f} {curr_symbol}", f"{df['Profit_%'].mean():+.2f}%")
+        m3.metric("Profit Gesamt", f"{df['Profit_T'].sum():,.2f} {curr_symbol}", f"{df['Profit_%'].mean():+.2f}%")
 
-        # Tabs für Kategorien
+        # Tabs
         t1, t2, t3, t4 = st.tabs(["🌍 Übersicht", "📈 Aktien", "₿ Krypto", "📜 Historie"])
+        
         with t1:
-            st.dataframe(df[['name', 'ticker', 'typ', 'menge', 'Kurs_T', 'Wert_T', 'Profit_%']], use_container_width=True)
+            disp_df = df[['name', 'ticker', 'typ', 'menge', 'Kurs_T', 'Wert_T', 'Profit_%']].copy()
+            st.dataframe(disp_df, use_container_width=True)
             c1, c2 = st.columns(2)
-            c1.plotly_chart(px.pie(df, values='Wert_T', names='typ', title="Klassen"), use_container_width=True)
-            c2.plotly_chart(px.pie(df
+            # KORRIGIERTER BEREICH (Klammern geschlossen):
+            c1.plotly_chart(px.pie(df, values='Wert_T', names='typ', title="Verteilung Klassen"), use_container_width=True)
+            c2.plotly_chart(px.pie(df, values='Wert_T', names='name', title="Verteilung Assets"), use_container_width=True)
+
+        def show_class_editor(category):
+            sub = df[df['typ'] == category]
+            for idx, row in sub.iterrows():
+                with st.expander(f"⚙️ {row['name']} ({row['ticker']})"):
+                    c_n, c_q, c_e = st.columns(3)
+                    n_ticker = c_n.text_input("Ticker", value=row['ticker'], key=f"t_{idx}")
+                    n_qty = c_q.number_input("Menge", value=float(row['menge']), key=f"q_{idx}")
+                    n_ek = c_e.number_input("EK", value=float(row['kaufpreis']), key=f"e_{idx}")
+                    if st.button("Speichern", key=f"s_{idx}"):
+                        df_base.loc[idx, 'ticker'] = n_ticker
+                        df_base.loc[idx, 'menge'] = n_qty
+                        df_base.loc[idx, 'kaufpreis'] = n_ek
+                        save_data(df_base); st.rerun()
+
+        with t2: show_class_editor("Aktie")
+        with t3: show_class_editor("Krypto")
+        with t4:
+            h_df = pd.read_csv(history_file) if os.path.exists(history_file) else pd.DataFrame()
+            if not h_df.empty: st.dataframe(h_df)
+
+    # ==========================================================
+    # TRENNSTRICH & TRADINGVIEW (UNTEN)
+    # ==========================================================
+    st.markdown("---")
+    st.header("🖼️ TradingView Multi-Terminal")
+
+    tv_cols = st.columns(cols_layout)
+    for i in range(num_charts):
+        with tv_cols[i % cols_layout]:
+            t_input = st.text_input(f"Fenster {i+1} Ticker", value="BINANCE:BTCUSDT", key=f"tv_{i}")
+            render_tv_chart(t_input, i)
+
+    # --- TOOLS (Ganz unten) ---
+    st.divider()
+    with st.expander("➕ Neues Asset / Backup"):
+        with st.form("new"):
+            f1, f2, f3, f4 = st.columns(4)
+            nt = f1.text_input("Ticker")
+            nn = f2.text_input("Name")
+            nm = f3.number_input("Menge", min_value=0.0)
+            nk = f4.number_input("Kaufpreis")
+            ny = st.selectbox("Typ", ["Aktie", "Krypto", "ETF"])
+            if st.form_submit_button("Hinzufügen"):
+                new_row = pd.DataFrame([{"ticker": nt.upper(), "name": nn, "menge": nm, "kaufpreis": nk, "typ": ny}])
+                save_data(pd.concat([df_base, new_row], ignore_index=True)); st.rerun()
