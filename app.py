@@ -18,40 +18,28 @@ def password_entered():
     if st.session_state["password"].strip().lower() == "pa":
         st.session_state["password_correct"] = True
         st.session_state["password"] = ""
-    else:
-        st.session_state["password_correct"] = False
+    else: st.session_state["password_correct"] = False
 
 def check_password():
     if st.session_state.get("password_correct", False): return True
     st.title("🔐 Sicherer Zugriff")
     st.text_input("Passwort:", type="password", on_change=password_entered, key="password")
-    if "password_correct" in st.session_state and not st.session_state["password_correct"]:
-        st.error("❌ Passwort falsch!")
     return False
 
-# --- START DER APP ---
 if check_password():
-
     # --- SIDEBAR ---
     with st.sidebar:
         st.header("⚙️ Menü")
-        base_currency = st.radio("Portfolio-Währung:", ["EUR", "USD"], index=0)
+        base_currency = st.radio("Währung:", ["EUR", "USD"])
         curr_symbol = "€" if base_currency == "EUR" else "$"
-        
         st.divider()
         st.subheader("🌡️ Markt-Sentiment")
         try:
             r = requests.get("https://api.alternative.me/fng/").json()
-            fng_val = r['data'][0]['value']
-            fng_class = r['data'][0]['value_classification']
-            st.metric("Crypto Fear & Greed", f"{fng_val}/100", fng_class)
+            st.metric("Crypto Fear & Greed", f"{r['data'][0]['value']}/100", r['data'][0]['value_classification'])
         except: st.write("Crypto F&G: N/A")
-        
-        # Aktien Sentiment direkt darunter
         st.markdown("[📊 Aktien Fear & Greed (CNN)](https://edition.cnn.com/markets/fear-and-greed)")
-        
         st.divider()
-        st.subheader("📺 Terminal Setup")
         num_charts = st.slider("Anzahl Charts", 1, 16, 4)
         cols_layout = st.select_slider("Spalten", options=[1, 2, 3, 4], value=2)
 
@@ -60,24 +48,12 @@ if check_password():
         cols = ["ticker", "name", "menge", "kaufpreis", "typ"] 
         if not os.path.exists(filename) or os.stat(filename).st_size == 0:
             return pd.DataFrame(columns=cols)
-        try:
-            df = pd.read_csv(filename)
-            if "name" not in df.columns: df["name"] = df["ticker"]
-            return df[cols]
-        except: return pd.DataFrame(columns=cols)
+        df = pd.read_csv(filename)
+        if "name" not in df.columns: df["name"] = df["ticker"]
+        return df[cols]
 
     def save_data(df_to_save):
-        if df_to_save is not None:
-            cols = ["ticker", "name", "menge", "kaufpreis", "typ"]
-            for c in cols:
-                if c not in df_to_save.columns: df_to_save[c] = ""
-            df_to_save[cols].to_csv(filename, index=False)
-
-    @st.cache_data(ttl=120)
-    def get_currency_rate(from_curr, to_curr):
-        if not from_curr or from_curr == to_curr: return 1.0
-        try: return yf.Ticker(f"{from_curr}{to_curr}=X").fast_info.last_price
-        except: return 1.0
+        df_to_save.to_csv(filename, index=False)
 
     @st.cache_data(ttl=120)
     def get_prices_info(tickers, types, target_curr):
@@ -88,22 +64,24 @@ if check_password():
                 if typ == "Krypto" and "-USD" not in sym: sym = f"{sym}-USD"
                 t_obj = yf.Ticker(sym)
                 info = t_obj.fast_info
-                rate = get_currency_rate(info.currency, target_curr)
-                results[t.lower()] = {"price": info.last_price * rate, "curr": info.currency, "rate": rate}
-            except: results[t.lower()] = {"price": 0.0, "curr": "USD", "rate": 1.0}
+                rate = yf.Ticker(f"{info.currency}{target_curr}=X").fast_info.last_price if info.currency != target_curr else 1.0
+                results[t.lower()] = {"price": info.last_price * rate, "rate": rate}
+            except: results[t.lower()] = {"price": 0.0, "rate": 1.0}
         return results
 
-    # --- PORTFOLIO BEREICH ---
-    st.title(f"🚀 Investment Zentrale Pro ({base_currency})")
-
+    # --- MARKT MONITOR (ALLE TICKER) ---
     st.subheader("📊 Global Market Watch")
-    m_tickers = {"DAX": "^GDAXI", "S&P 500": "^GSPC", "Nasdaq": "^NDX", "Gold": "GC=F", "VIX": "^VIX", "BTC-EUR": "BTC-EUR"}
-    m_cols = st.columns(len(m_tickers))
+    m_tickers = {
+        "DAX": "^GDAXI", "S&P 500": "^GSPC", "Nasdaq": "^NDX", "Dow Jones": "^DJI",
+        "Gold": "GC=F", "Silber": "SI=F", "Öl": "BZ=F", "VIX": "^VIX",
+        "BTC-EUR": "BTC-EUR", "ETH-USD": "ETH-USD", "EUR/TRY": "EURTRY=X"
+    }
+    m_cols = st.columns(6)
     for i, (n, s) in enumerate(m_tickers.items()):
         try:
             val = yf.Ticker(s).fast_info.last_price
-            m_cols[i].metric(n, f"{val:,.2f}")
-        except: m_cols[i].metric(n, "Error")
+            m_cols[i % 6].metric(n, f"{val:,.2f}")
+        except: m_cols[i % 6].metric(n, "Err")
 
     st.divider()
     df_base = load_data()
@@ -111,33 +89,35 @@ if check_password():
     if not df_base.empty:
         p_info = get_prices_info(df_base['ticker'].tolist(), df_base['typ'].tolist(), base_currency)
         df = df_base.copy()
-        df['Kurs_T'] = df['ticker'].str.lower().apply(lambda x: p_info.get(x, {}).get('price', 0))
-        df['Rate_T'] = df['ticker'].str.lower().apply(lambda x: p_info.get(x, {}).get('rate', 1.0))
-        df['Wert_T'] = df['menge'] * df['Kurs_T']
-        df['Invest_T'] = df['menge'] * df['kaufpreis'] * df['Rate_T']
-        df['Profit_T'] = df['Wert_T'] - df['Invest_T']
-        df['Profit_%'] = (df['Profit_T'] / df['Invest_T'] * 100).fillna(0)
+        df['Kurs_Aktuell'] = df['ticker'].str.lower().apply(lambda x: p_info.get(x, {}).get('price', 0))
+        df['Rate'] = df['ticker'].str.lower().apply(lambda x: p_info.get(x, {}).get('rate', 1.0))
+        df['Gesamtwert'] = df['menge'] * df['Kurs_Aktuell']
+        df['Investiert'] = df['menge'] * df['kaufpreis'] * df['Rate']
+        df['Profit'] = df['Gesamtwert'] - df['Investiert']
+        df['Profit_Perc'] = (df['Profit'] / df['Investiert'] * 100).fillna(0)
 
-        m1, m2, m3 = st.columns(3)
-        m1.metric("Gesamtwert", f"{df['Wert_T'].sum():,.2f} {curr_symbol}")
-        m2.metric("Investiert", f"{df['Invest_T'].sum():,.2f} {curr_symbol}")
-        p_ges = df['Profit_T'].sum()
-        perf_ges = (p_ges / df['Invest_T'].sum() * 100) if df['Invest_T'].sum() > 0 else 0
-        m3.metric("Profit Gesamt", f"{p_ges:,.2f} {curr_symbol}", f"{perf_ges:+.2f}%")
-
-        st.divider()
-        t1, t2, t3, t4 = st.tabs(["🌍 Übersicht", "📈 Aktien", "₿ Krypto", "📊 ETFs"])
+        # ÜBERSICHT (MIT GESAMTSUMME)
+        st.title(f"💰 Portfolio: {df['Gesamtwert'].sum():,.2f} {curr_symbol}")
         
+        t1, t2, t3, t4 = st.tabs(["🌍 Übersicht", "📈 Aktien", "₿ Krypto", "📊 ETFs"])
         with t1:
-            st.dataframe(df[['name', 'ticker', 'typ', 'menge', 'Kurs_T', 'Wert_T', 'Profit_T']], use_container_width=True)
+            st.dataframe(df[['name', 'ticker', 'menge', 'kaufpreis', 'Kurs_Aktuell', 'Gesamtwert', 'Profit']], use_container_width=True)
 
         def show_class(category):
             sub = df[df['typ'] == category]
             if not sub.empty:
-                st.write(f"### {category} Details")
+                # SUMMEN FÜR BEREICH
+                c1, c2, c3 = st.columns(3)
+                c1.metric(f"Wert {category}", f"{sub['Gesamtwert'].sum():,.2f} {curr_symbol}")
+                c2.metric("Profit/Verlust", f"{sub['Profit'].sum():,.2f} {curr_symbol}", f"{(sub['Profit'].sum()/sub['Investiert'].sum()*100):+.2f}%")
+                c3.metric("Investiert", f"{sub['Investiert'].sum():,.2f} {curr_symbol}")
+                
                 for idx, row in sub.iterrows():
-                    with st.expander(f"{row['name']} ({row['ticker']})"):
-                        st.write(f"Wert: {row['Wert_T']:,.2f} {curr_symbol}")
+                    with st.expander(f"{row['name']} | G/V: {row['Profit']:,.2f} {curr_symbol} ({row['Profit_Perc']:+.2f}%)"):
+                        colA, colB, colC = st.columns(3)
+                        colA.write(f"**Menge:** {row['menge']}")
+                        colB.write(f"**EK:** {row['kaufpreis']:.2f}")
+                        colC.write(f"**Kurs:** {row['Kurs_Aktuell']:.2f}")
                         if st.button("🗑️ Löschen", key=f"del_{idx}"):
                             save_data(df_base.drop(idx)); st.rerun()
 
@@ -162,29 +142,22 @@ if check_password():
                     save_data(pd.concat([df_base, pd.DataFrame([{"ticker":nt.upper(),"name":nn,"menge":nm,"kaufpreis":nk,"typ":ny}])], ignore_index=True))
                     st.rerun()
 
-    # --- TERMINAL ---
+    # --- TERMINAL (SPEICHERT JETZT RICHTIG) ---
     st.markdown("---")
     st.header("🖼️ Multi-Chart Terminal")
-
     if "saved_tickers" not in st.session_state:
-        if os.path.exists(chart_config_file):
-            st.session_state.saved_tickers = pd.read_csv(chart_config_file)['ticker'].tolist()
-        else:
-            st.session_state.saved_tickers = ["BINANCE:BTCUSDT"] * 16
-
-    def render_tv_chart(symbol, index):
-        html = f"""<div id="tv_{index}" style="height:450px;"></div><script src="https://s3.tradingview.com/tv.js"></script>
-        <script>new TradingView.widget({{"autosize":true,"symbol":"{symbol}","interval":"D","theme":"dark","container_id":"tv_{index}"}});</script>"""
-        components.html(html, height=460)
+        if os.path.exists(chart_config_file): st.session_state.saved_tickers = pd.read_csv(chart_config_file)['ticker'].tolist()
+        else: st.session_state.saved_tickers = ["BINANCE:BTCUSDT"] * 16
 
     tv_cols = st.columns(cols_layout)
     current_tickers = []
     for i in range(num_charts):
         with tv_cols[i % cols_layout]:
             val = st.session_state.saved_tickers[i] if i < len(st.session_state.saved_tickers) else "BINANCE:BTCUSDT"
-            t_in = st.text_input(f"Chart {i+1}", value=val, key=f"tv_input_{i}")
+            t_in = st.text_input(f"Fenster {i+1} (Ticker eingeben)", value=val, key=f"tv_input_{i}")
             current_tickers.append(t_in)
-            render_tv_chart(t_in, i)
+            components.html(f"""<div id="tv_{i}" style="height:400px;"></div><script src="https://s3.tradingview.com/tv.js"></script>
+            <script>new TradingView.widget({{"autosize":true,"symbol":"{t_in}","interval":"D","theme":"dark","container_id":"tv_{i}"}});</script>""", height=410)
 
     if st.button("💾 Layout speichern"):
         st.session_state.saved_tickers = current_tickers
