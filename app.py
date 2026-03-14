@@ -159,35 +159,32 @@ if check_password():
         def show_class(category):
             sub = df[df['typ'] == category]
             if not sub.empty:
-                # --- NEU: ZWISCHENSUMMEN BERECHNEN ---
+                # Bereichs-Summen anzeigen
                 cat_wert = sub['Wert_T'].sum()
                 cat_invest = sub['Invest_T'].sum()
                 cat_profit = sub['Profit_T'].sum()
                 cat_perf = (cat_profit / cat_invest * 100) if cat_invest > 0 else 0
 
-                # Anzeige der Bereichs-Metriken
                 c1, c2, c3 = st.columns(3)
                 c1.metric(f"Wert {category}", f"{cat_wert:,.2f} {curr_symbol}")
-                c2.metric(f"Investiert", f"{cat_invest:,.2f} {curr_symbol}")
-                c3.metric(f"Profit", f"{cat_profit:,.2f} {curr_symbol}", f"{cat_perf:+.2f}%")
+                c2.metric("Investiert", f"{cat_invest:,.2f} {curr_symbol}")
+                c3.metric("Profit", f"{cat_profit:,.2f} {curr_symbol}", f"{cat_perf:+.2f}%")
                 st.divider()
-                # --- ENDE NEU ---
 
-            for idx, row in sub.iterrows():
-                with st.expander(f"⚙️ {row['name']} ({row['ticker'].upper()}) | {row['Profit_%']:+.2f}%"):
-                    # ... (Dein restlicher Code für die Eingabefelder bleibt gleich)
-                c_n, c_name_edit, c_q, c_e = st.columns(4)
-                n_ticker = c_n.text_input("Ticker", value=row['ticker'], key=f"n_{idx}")
-                n_desc = c_name_edit.text_input("Beschreibung", value=row['name'], key=f"desc_{idx}")
-                n_qty = c_q.number_input("Menge", value=float(row['menge']), key=f"q_{idx}")
-                n_ek = c_e.number_input(f"EK ({row['Orig_C']})", value=float(row['kaufpreis']), key=f"e_{idx}")
+                for idx, row in sub.iterrows():
+                    # Zeile 177: Das 'with' Statement
+                    with st.expander(f"⚙️ {row['name']} ({row['ticker'].upper()}) | {row['Profit_%']:+.2f}%"):
+                        # Zeile 179: Muss eingerückt sein! (4 Leerzeichen oder 1 Tab weiter rechts als 'with')
+                        c_n, c_name_edit, c_q, c_e = st.columns(4)
+                        n_ticker = c_n.text_input("Ticker", value=row['ticker'], key=f"n_{idx}")
+                        n_desc = c_name_edit.text_input("Beschreibung", value=row['name'], key=f"desc_{idx}")
+                        n_qty = c_q.number_input("Menge", value=float(row['menge']), key=f"q_{idx}")
+                        n_ek = c_e.number_input(f"EK ({row['Orig_C']})", value=float(row['kaufpreis']), key=f"e_{idx}")
                         
-                # (Speichern-Logik etc. wie gehabt)
-                # ...
-                
-                sub_disp = sub[['name', 'ticker', 'menge', 'Kurs_T', 'Wert_T', 'Profit_T', 'Profit_%']].copy()
-                sub_disp['Profit_%'] = sub_disp['Profit_%'].map("{:+.2f}%".format)
-                st.table(sub_disp)
+                        col_tr, col_amt = st.columns(2)
+                        tr_type = col_tr.radio("Transaktion", ["Keine", "Kauf", "Verkauf"], horizontal=True, key=f"tr_{idx}")
+                        tr_amt = col_amt.number_input("Trade Menge", min_value=0.0, key=f"tra_{idx}")
+                        
                         b_s, b_d = st.columns(2)
                         if b_s.button("💾 Speichern", key=f"s_{idx}"):
                             if tr_type != "Keine" and tr_amt > 0:
@@ -200,14 +197,17 @@ if check_password():
                             df_base.loc[idx, 'name'] = n_desc
                             df_base.loc[idx, 'menge'] = n_qty
                             df_base.loc[idx, 'kaufpreis'] = n_ek
-                            save_data(df_base[df_base['menge'] > 0]); st.rerun()
+                            save_data(df_base[df_base['menge'] > 0])
+                            st.rerun()
+
                         if b_d.button("🗑️ Löschen", key=f"del_{idx}"):
-                            save_data(df_base.drop(idx)); st.rerun()
+                            save_data(df_base.drop(idx))
+                            st.rerun()
                 
+                # Tabelle unter den Expander
                 sub_disp = sub[['name', 'ticker', 'menge', 'Kurs_T', 'Wert_T', 'Profit_T', 'Profit_%']].copy()
                 sub_disp['Profit_%'] = sub_disp['Profit_%'].map("{:+.2f}%".format)
                 st.table(sub_disp)
-
         with t2: show_class("Aktie")
         with t3: show_class("Krypto")
         with t4: show_class("ETF")
