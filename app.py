@@ -16,7 +16,7 @@ history_file = "history.csv"
 
 # --- 1. PASSWORT-LOGIK ---
 def password_entered():
-    if st.session_state["password"].strip().lower() == "pa":
+    if st.session_state["password"].strip().lower() == "bismillah":
         st.session_state["password_correct"] = True
         st.session_state["password"] = ""
     else:
@@ -192,8 +192,20 @@ if check_password():
     # ==========================================================
     # --- NEU: TRADING TERMINAL (UNTER DEINEM PORTFOLIO) ---
     # ==========================================================
+    # ==========================================================
+    # --- TERMINAL MIT SPEICHER-FUNKTION (GANZ UNTEN) ---
+    # ==========================================================
     st.markdown("---")
     st.header("🖼️ Multi-Chart Terminal")
+
+    # 1. Gespeicherte Ticker laden
+    if os.path.exists(chart_config_file):
+        try:
+            saved_charts = pd.read_csv(chart_config_file)['ticker'].tolist()
+        except:
+            saved_charts = ["BINANCE:BTCUSDT"] * 16
+    else:
+        saved_charts = ["BINANCE:BTCUSDT"] * 16
 
     def render_tv_chart(symbol, index):
         html_code = f"""
@@ -208,8 +220,20 @@ if check_password():
         </script> """
         components.html(html_code, height=460)
 
+    # 2. Charts im Grid anzeigen
+    current_chart_tickers = []
     tv_cols = st.columns(cols_layout)
+
     for i in range(num_charts):
         with tv_cols[i % cols_layout]:
-            t_input = st.text_input(f"Fenster {i+1} Ticker", value="BINANCE:BTCUSDT", key=f"tv_input_{i}")
+            # Falls die Liste kürzer ist als num_charts, nimm BTC als Fallback
+            default_val = saved_charts[i] if i < len(saved_charts) else "BINANCE:BTCUSDT"
+            
+            t_input = st.text_input(f"Fenster {i+1}", value=default_val, key=f"tv_input_{i}")
+            current_chart_tickers.append(t_input)
             render_tv_chart(t_input, i)
+
+    # 3. Speicher-Button
+    if st.button("💾 Mein Chart-Layout dauerhaft speichern"):
+        pd.DataFrame({"ticker": current_chart_tickers}).to_csv(chart_config_file, index=False)
+        st.success("✅ Layout gespeichert! Diese Ticker bleiben nun auch nach einem Neustart.")
