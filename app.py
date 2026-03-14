@@ -143,23 +143,53 @@ if check_password():
                     st.rerun()
 
     # --- TERMINAL (SPEICHERT JETZT RICHTIG) ---
+    # --- TERMINAL (TICKER-SUCHE INNERHALB DES CHARTS AKTIVIERT) ---
     st.markdown("---")
     st.header("🖼️ Multi-Chart Terminal")
+    
     if "saved_tickers" not in st.session_state:
-        if os.path.exists(chart_config_file): st.session_state.saved_tickers = pd.read_csv(chart_config_file)['ticker'].tolist()
-        else: st.session_state.saved_tickers = ["BINANCE:BTCUSDT"] * 16
+        if os.path.exists(chart_config_file): 
+            st.session_state.saved_tickers = pd.read_csv(chart_config_file)['ticker'].tolist()
+        else: 
+            st.session_state.saved_tickers = ["BINANCE:BTCUSDT"] * 16
 
     tv_cols = st.columns(cols_layout)
     current_tickers = []
+    
     for i in range(num_charts):
         with tv_cols[i % cols_layout]:
+            # Wert für das äußere Feld (zum Speichern)
             val = st.session_state.saved_tickers[i] if i < len(st.session_state.saved_tickers) else "BINANCE:BTCUSDT"
-            t_in = st.text_input(f"Fenster {i+1} (Ticker eingeben)", value=val, key=f"tv_input_{i}")
+            
+            # Das Feld darüber lassen wir schmal, damit man sieht was gespeichert wird
+            t_in = st.text_input(f"Fenster {i+1} Speicher-Ticker", value=val, key=f"tv_input_{i}")
             current_tickers.append(t_in)
-            components.html(f"""<div id="tv_{i}" style="height:400px;"></div><script src="https://s3.tradingview.com/tv.js"></script>
-            <script>new TradingView.widget({{"autosize":true,"symbol":"{t_in}","interval":"D","theme":"dark","container_id":"tv_{i}"}});</script>""", height=410)
+            
+            # DAS WIDGET (mit "allow_symbol_change": true für die Suche IM Chart)
+            components.html(f"""
+            <div id="tv_{i}" style="height:400px;"></div>
+            <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
+            <script type="text/javascript">
+            new TradingView.widget({{
+              "autosize": true,
+              "symbol": "{t_in}",
+              "interval": "D",
+              "timezone": "Europe/Berlin",
+              "theme": "dark",
+              "style": "1",
+              "locale": "de",
+              "toolbar_bg": "#f1f3f6",
+              "enable_publishing": false,
+              "allow_symbol_change": true,  // ERMÖGLICHT SUCHE INNERHALB DES CHARTS
+              "details": true,
+              "hotlist": true,
+              "calendar": true,
+              "container_id": "tv_{i}"
+            }});
+            </script>
+            """, height=410)
 
-    if st.button("💾 Layout speichern"):
+    if st.button("💾 Dieses Layout als Standard speichern"):
         st.session_state.saved_tickers = current_tickers
         pd.DataFrame({"ticker": current_tickers}).to_csv(chart_config_file, index=False)
-        st.success("✅ Charts gespeichert!")
+        st.success("✅ Diese Ticker werden beim nächsten Start automatisch geladen!")
