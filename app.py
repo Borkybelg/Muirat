@@ -46,7 +46,11 @@ if check_password():
             fng_val = r['data'][0]['value']
             fng_class = r['data'][0]['value_classification']
             st.metric("Crypto Fear & Greed", f"{fng_val}/100", fng_class)
-        except: st.write("Crypto F&G: N/A")
+        except: 
+            st.write("Crypto F&G: N/A")
+        
+        # JETZT DIREKT DARUNTER:
+        st.markdown("[📊 Aktien Fear & Greed (CNN)](https://edition.cnn.com/markets/fear-and-greed)")
         
         st.divider()
         st.subheader("📺 Terminal Setup")
