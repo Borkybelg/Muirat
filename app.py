@@ -10,7 +10,7 @@ import streamlit.components.v1 as components
 # ==========================================================
     # --- TERMINAL DAS SICH ALLES MERKT ---
     # ==========================================================
-    st.markdown("---")
+ 
     st.header("🖼️ Multi-Chart Terminal")
 
     # Datei-Pfad für Chart-Speicher
