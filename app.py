@@ -7,78 +7,15 @@ import plotly.express as px
 from datetime import datetime
 import streamlit.components.v1 as components
 
-    # --- TOOLS (BACKUP & NEU) ---
-    st.divider()
-    tc1, tc2, tc3 = st.columns(3)
-    with tc1:
-        st.download_button("📥 Backup CSV", df_base.to_csv(index=False), "portfolio.csv")
-    with tc2:
-        up = st.file_uploader("📤 Restore CSV", type="csv")
-        if up and st.button("Überschreiben"):
-            save_data(pd.read_csv(up)); st.rerun()
-    with tc3:
-        with st.expander("➕ Neu hinzufügen"):
-            with st.form("new"):
-                nt, nn, nm, nk = st.text_input("Ticker"), st.text_input("Name"), st.number_input("Menge"), st.number_input("EK")
-                ny = st.selectbox("Typ", ["Aktie", "Krypto", "ETF"])
-                if st.form_submit_button("Hinzufügen"):
-                    save_data(pd.concat([df_base, pd.DataFrame([{"ticker":nt.upper(),"name":nn,"menge":nm,"kaufpreis":nk,"typ":ny}])], ignore_index=True))
-                    st.rerun()
-
-    # ==========================================================
-    # --- NEU: TERMINAL DAS SICH ALLES MERKT ---
-    # ==========================================================
-    st.markdown("---")
-    st.header("🖼️ Multi-Chart Terminal")
-
-    chart_config_file = "charts_config.csv"
-
-    # Sicherstellen, dass die Ticker im Speicher bleiben
-    if "saved_tickers" not in st.session_state:
-        if os.path.exists(chart_config_file):
-            try:
-                st.session_state.saved_tickers = pd.read_csv(chart_config_file)['ticker'].tolist()
-            except:
-                st.session_state.saved_tickers = ["BINANCE:BTCUSDT"] * 16
-        else:
-            st.session_state.saved_tickers = ["BINANCE:BTCUSDT"] * 16
-
-    def render_tv_chart(symbol, index):
-        html_code = f"""
-        <div id="tv_{index}" style="height:450px;"></div>
-        <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
-        <script type="text/javascript">
-        new TradingView.widget({{
-          "autosize": true, "symbol": "{symbol}", "interval": "D", "timezone": "Europe/Berlin",
-          "theme": "dark", "style": "1", "locale": "de", "enable_publishing": false,
-          "allow_symbol_change": true, "container_id": "tv_{index}"
-        }});
-        </script> """
-        components.html(html_code, height=460)
-
-    tv_cols = st.columns(cols_layout)
-    new_tickers = []
-
-    for i in range(num_charts):
-        with tv_cols[i % cols_layout]:
-            # Fallback falls Liste zu kurz
-            d_val = st.session_state.saved_tickers[i] if i < len(st.session_state.saved_tickers) else "BINANCE:BTCUSDT"
-            t_input = st.text_input(f"Fenster {i+1}", value=d_val, key=f"tv_input_{i}")
-            new_tickers.append(t_input)
-            render_tv_chart(t_input, i)
-
-    if st.button("💾 Layout dauerhaft speichern"):
-        st.session_state.saved_tickers = new_tickers
-        pd.DataFrame({"ticker": new_tickers}).to_csv(chart_config_file, index=False)
-        st.success("✅ Charts gespeichert!")
 # --- 0. KONFIGURATION ---
 st.set_page_config(page_title="Investment Center Pro", layout="wide")
 filename = "portfolio.csv"
 history_file = "history.csv"
+chart_config_file = "charts_config.csv"
 
 # --- 1. PASSWORT-LOGIK ---
 def password_entered():
-    if st.session_state["password"].strip().lower() == "bismillah":
+    if st.session_state["password"].strip().lower() == "pa":
         st.session_state["password_correct"] = True
         st.session_state["password"] = ""
     else:
@@ -95,7 +32,7 @@ def check_password():
 # --- START DER APP ---
 if check_password():
 
-    # --- SIDEBAR (Kommando-Zentrale) ---
+    # --- SIDEBAR ---
     with st.sidebar:
         st.header("⚙️ Menü")
         base_currency = st.radio("Portfolio-Währung:", ["EUR", "USD"], index=0)
@@ -108,10 +45,9 @@ if check_password():
             fng_val = r['data'][0]['value']
             fng_class = r['data'][0]['value_classification']
             st.metric("Crypto Fear & Greed", f"{fng_val}/100", fng_class)
-        except: 
-            st.write("Crypto F&G: N/A")
+        except: st.write("Crypto F&G: N/A")
         
-        # JETZT DIREKT DARUNTER:
+        # Aktien Sentiment direkt darunter
         st.markdown("[📊 Aktien Fear & Greed (CNN)](https://edition.cnn.com/markets/fear-and-greed)")
         
         st.divider()
@@ -119,7 +55,7 @@ if check_password():
         num_charts = st.slider("Anzahl Charts", 1, 16, 4)
         cols_layout = st.select_slider("Spalten", options=[1, 2, 3, 4], value=2)
 
-    # --- DATEN-FUNKTIONEN (DEIN PORTFOLIO-KERN) ---
+    # --- DATEN-FUNKTIONEN ---
     def load_data():
         cols = ["ticker", "name", "menge", "kaufpreis", "typ"] 
         if not os.path.exists(filename) or os.stat(filename).st_size == 0:
@@ -136,17 +72,6 @@ if check_password():
             for c in cols:
                 if c not in df_to_save.columns: df_to_save[c] = ""
             df_to_save[cols].to_csv(filename, index=False)
-
-    def load_history():
-        if not os.path.exists(history_file) or os.stat(history_file).st_size == 0:
-            return pd.DataFrame(columns=["datum", "ticker", "menge", "ek", "vk", "gewinn"])
-        return pd.read_csv(history_file)
-
-    def add_to_history(ticker, menge, ek, vk):
-        h_df = load_history()
-        gewinn = (float(vk) - float(ek)) * float(menge)
-        neu = pd.DataFrame([{"datum": datetime.now().strftime("%d.%m.%Y"), "ticker": ticker.upper(), "menge": menge, "ek": ek, "vk": vk, "gewinn": gewinn}])
-        pd.concat([h_df, neu], ignore_index=True).to_csv(history_file, index=False)
 
     @st.cache_data(ttl=120)
     def get_currency_rate(from_curr, to_curr):
@@ -168,22 +93,17 @@ if check_password():
             except: results[t.lower()] = {"price": 0.0, "curr": "USD", "rate": 1.0}
         return results
 
-    # --- PORTFOLIO ANZEIGE ---
+    # --- PORTFOLIO BEREICH ---
     st.title(f"🚀 Investment Zentrale Pro ({base_currency})")
 
     st.subheader("📊 Global Market Watch")
-    m_tickers = {
-        "DAX": "^GDAXI", "S&P 500": "^GSPC", "Dow Jones": "^DJI", "Nasdaq": "^NDX",
-        "MDAX": "^MDAXI", "SDAX": "^SDAXI", "TecDAX": "^TECDAX", "Russell 2k": "^RUT",
-        "Gold": "GC=F", "Silber": "SI=F", "Öl": "BZ=F", "VIX": "^VIX",
-        "BTC-EUR": "BTC-EUR", "ETH-USD": "ETH-USD", "EUR/TRY": "EURTRY=X"
-    }
-    m_cols = st.columns(5)
+    m_tickers = {"DAX": "^GDAXI", "S&P 500": "^GSPC", "Nasdaq": "^NDX", "Gold": "GC=F", "VIX": "^VIX", "BTC-EUR": "BTC-EUR"}
+    m_cols = st.columns(len(m_tickers))
     for i, (n, s) in enumerate(m_tickers.items()):
         try:
             val = yf.Ticker(s).fast_info.last_price
-            m_cols[i % 5].metric(n, f"{val:,.2f}")
-        except: m_cols[i % 5].metric(n, "Error")
+            m_cols[i].metric(n, f"{val:,.2f}")
+        except: m_cols[i].metric(n, "Error")
 
     st.divider()
     df_base = load_data()
@@ -199,55 +119,42 @@ if check_password():
         df['Profit_%'] = (df['Profit_T'] / df['Invest_T'] * 100).fillna(0)
 
         m1, m2, m3 = st.columns(3)
-        m1.metric("Gesamtwert Portfolio", f"{df['Wert_T'].sum():,.2f} {curr_symbol}")
-        m2.metric("Gesamt Investiert", f"{df['Invest_T'].sum():,.2f} {curr_symbol}")
+        m1.metric("Gesamtwert", f"{df['Wert_T'].sum():,.2f} {curr_symbol}")
+        m2.metric("Investiert", f"{df['Invest_T'].sum():,.2f} {curr_symbol}")
         p_ges = df['Profit_T'].sum()
         perf_ges = (p_ges / df['Invest_T'].sum() * 100) if df['Invest_T'].sum() > 0 else 0
         m3.metric("Profit Gesamt", f"{p_ges:,.2f} {curr_symbol}", f"{perf_ges:+.2f}%")
 
         st.divider()
-        t1, t2, t3, t4, t5 = st.tabs(["🌍 Übersicht", "📈 Aktien", "₿ Krypto", "📊 ETFs", "📜 Historie"])
+        t1, t2, t3, t4 = st.tabs(["🌍 Übersicht", "📈 Aktien", "₿ Krypto", "📊 ETFs"])
         
         with t1:
-            disp_df = df[['name', 'ticker', 'typ', 'menge', 'Kurs_T', 'Wert_T', 'Profit_T', 'Profit_%']].copy()
-            disp_df['Profit_%'] = disp_df['Profit_%'].map("{:+.2f}%".format)
-            st.dataframe(disp_df, use_container_width=True)
+            st.dataframe(df[['name', 'ticker', 'typ', 'menge', 'Kurs_T', 'Wert_T', 'Profit_T']], use_container_width=True)
 
         def show_class(category):
             sub = df[df['typ'] == category]
             if not sub.empty:
-                st.metric(f"Summe {category}", f"{sub['Wert_T'].sum():,.2f} {curr_symbol}", f"{(sub['Profit_T'].sum()/sub['Invest_T'].sum()*100) if sub['Invest_T'].sum()>0 else 0:+.2f}%")
+                st.write(f"### {category} Details")
                 for idx, row in sub.iterrows():
-                    with st.expander(f"⚙️ {row['name']} ({row['ticker'].upper()})"):
-                        c_n, c_desc, c_q, c_e = st.columns(4)
-                        n_ticker = c_n.text_input("Ticker", row['ticker'], key=f"n_{idx}")
-                        n_desc = c_desc.text_input("Name", row['name'], key=f"d_{idx}")
-                        n_qty = c_q.number_input("Menge", value=float(row['menge']), key=f"q_{idx}")
-                        n_ek = c_e.number_input("EK", value=float(row['kaufpreis']), key=f"e_{idx}")
-                        if st.button("💾 Speichern", key=f"s_{idx}"):
-                            df_base.loc[idx] = [n_ticker.upper(), n_desc, n_qty, n_ek, category]
-                            save_data(df_base); st.rerun()
+                    with st.expander(f"{row['name']} ({row['ticker']})"):
+                        st.write(f"Wert: {row['Wert_T']:,.2f} {curr_symbol}")
                         if st.button("🗑️ Löschen", key=f"del_{idx}"):
                             save_data(df_base.drop(idx)); st.rerun()
 
         with t2: show_class("Aktie")
         with t3: show_class("Krypto")
         with t4: show_class("ETF")
-        with t5: 
-            h_df = load_history()
-            if not h_df.empty: st.dataframe(h_df, use_container_width=True)
 
-    # --- TOOLS (BACKUP & NEU) ---
+    # --- TOOLS ---
     st.divider()
     tc1, tc2, tc3 = st.columns(3)
-    with tc1:
-        st.download_button("📥 Backup CSV", df_base.to_csv(index=False), "portfolio.csv")
+    with tc1: st.download_button("📥 Backup", df_base.to_csv(index=False), "portfolio.csv")
     with tc2:
-        up = st.file_uploader("📤 Restore CSV", type="csv")
-        if up and st.button("Überschreiben"):
+        up = st.file_uploader("📤 Restore", type="csv")
+        if up and st.button("Einspielen"):
             save_data(pd.read_csv(up)); st.rerun()
     with tc3:
-        with st.expander("➕ Neu hinzufügen"):
+        with st.expander("➕ Neu"):
             with st.form("new"):
                 nt, nn, nm, nk = st.text_input("Ticker"), st.text_input("Name"), st.number_input("Menge"), st.number_input("EK")
                 ny = st.selectbox("Typ", ["Aktie", "Krypto", "ETF"])
@@ -255,51 +162,31 @@ if check_password():
                     save_data(pd.concat([df_base, pd.DataFrame([{"ticker":nt.upper(),"name":nn,"menge":nm,"kaufpreis":nk,"typ":ny}])], ignore_index=True))
                     st.rerun()
 
-    # ==========================================================
-    # --- NEU: TRADING TERMINAL (UNTER DEINEM PORTFOLIO) ---
-    # ==========================================================
-    # ==========================================================
-    # --- TERMINAL MIT SPEICHER-FUNKTION (GANZ UNTEN) ---
-    # ==========================================================
+    # --- TERMINAL ---
     st.markdown("---")
     st.header("🖼️ Multi-Chart Terminal")
 
-    # 1. Gespeicherte Ticker laden
-    if os.path.exists(chart_config_file):
-        try:
-            saved_charts = pd.read_csv(chart_config_file)['ticker'].tolist()
-        except:
-            saved_charts = ["BINANCE:BTCUSDT"] * 16
-    else:
-        saved_charts = ["BINANCE:BTCUSDT"] * 16
+    if "saved_tickers" not in st.session_state:
+        if os.path.exists(chart_config_file):
+            st.session_state.saved_tickers = pd.read_csv(chart_config_file)['ticker'].tolist()
+        else:
+            st.session_state.saved_tickers = ["BINANCE:BTCUSDT"] * 16
 
     def render_tv_chart(symbol, index):
-        html_code = f"""
-        <div id="tv_{index}" style="height:450px;"></div>
-        <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
-        <script type="text/javascript">
-        new TradingView.widget({{
-          "autosize": true, "symbol": "{symbol}", "interval": "D", "timezone": "Europe/Berlin",
-          "theme": "dark", "style": "1", "locale": "de", "enable_publishing": false,
-          "allow_symbol_change": true, "container_id": "tv_{index}"
-        }});
-        </script> """
-        components.html(html_code, height=460)
+        html = f"""<div id="tv_{index}" style="height:450px;"></div><script src="https://s3.tradingview.com/tv.js"></script>
+        <script>new TradingView.widget({{"autosize":true,"symbol":"{symbol}","interval":"D","theme":"dark","container_id":"tv_{index}"}});</script>"""
+        components.html(html, height=460)
 
-    # 2. Charts im Grid anzeigen
-    current_chart_tickers = []
     tv_cols = st.columns(cols_layout)
-
+    current_tickers = []
     for i in range(num_charts):
         with tv_cols[i % cols_layout]:
-            # Falls die Liste kürzer ist als num_charts, nimm BTC als Fallback
-            default_val = saved_charts[i] if i < len(saved_charts) else "BINANCE:BTCUSDT"
-            
-            t_input = st.text_input(f"Fenster {i+1}", value=default_val, key=f"tv_input_{i}")
-            current_chart_tickers.append(t_input)
-            render_tv_chart(t_input, i)
+            val = st.session_state.saved_tickers[i] if i < len(st.session_state.saved_tickers) else "BINANCE:BTCUSDT"
+            t_in = st.text_input(f"Chart {i+1}", value=val, key=f"tv_input_{i}")
+            current_tickers.append(t_in)
+            render_tv_chart(t_in, i)
 
-    # 3. Speicher-Button
-    if st.button("💾 Mein Chart-Layout dauerhaft speichern"):
-        pd.DataFrame({"ticker": current_chart_tickers}).to_csv(chart_config_file, index=False)
-        st.success("✅ Layout gespeichert! Diese Ticker bleiben nun auch nach einem Neustart.")
+    if st.button("💾 Layout speichern"):
+        st.session_state.saved_tickers = current_tickers
+        pd.DataFrame({"ticker": current_tickers}).to_csv(chart_config_file, index=False)
+        st.success("✅ Charts gespeichert!")
