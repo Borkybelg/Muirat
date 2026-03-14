@@ -146,6 +146,7 @@ if check_password():
 
     # --- TERMINAL (SPEICHERT JETZT RICHTIG) ---
     # --- TERMINAL (TICKER-SUCHE INNERHALB DES CHARTS AKTIVIERT) ---
+    # --- TERMINAL (MIT VOLLER ZEICHEN-TOOLBAR) ---
     st.markdown("---")
     st.header("🖼️ Multi-Chart Terminal")
     
@@ -160,16 +161,13 @@ if check_password():
     
     for i in range(num_charts):
         with tv_cols[i % cols_layout]:
-            # Wert für das äußere Feld (zum Speichern)
             val = st.session_state.saved_tickers[i] if i < len(st.session_state.saved_tickers) else "BINANCE:BTCUSDT"
-            
-            # Das Feld darüber lassen wir schmal, damit man sieht was gespeichert wird
-            t_in = st.text_input(f"Fenster {i+1} Speicher-Ticker", value=val, key=f"tv_input_{i}")
+            t_in = st.text_input(f"Fenster {i+1}", value=val, key=f"tv_input_{i}")
             current_tickers.append(t_in)
             
-            # DAS WIDGET (mit "allow_symbol_change": true für die Suche IM Chart)
+            # DAS VOLLE WIDGET MIT TOOLBAR
             components.html(f"""
-            <div id="tv_{i}" style="height:400px;"></div>
+            <div id="tv_{i}" style="height:500px;"></div>
             <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
             <script type="text/javascript">
             new TradingView.widget({{
@@ -180,18 +178,22 @@ if check_password():
               "theme": "dark",
               "style": "1",
               "locale": "de",
-              "toolbar_bg": "#f1f3f6",
               "enable_publishing": false,
-              "allow_symbol_change": true,  // ERMÖGLICHT SUCHE INNERHALB DES CHARTS
+              "hide_side_toolbar": false,     // ZEIGT DIE ZEICHEN-TOOLS LINKS
+              "allow_symbol_change": true,    // ERMÖGLICHT SUCHE IM CHART
+              "save_image": true,             // ERMÖGLICHT SCREENSHOTS
               "details": true,
               "hotlist": true,
               "calendar": true,
+              "show_popup_button": true,      // ERMÖGLICHT GROSSANSICHT
+              "popup_width": "1000",
+              "popup_height": "650",
               "container_id": "tv_{i}"
             }});
             </script>
-            """, height=410)
+            """, height=510)
 
-    if st.button("💾 Dieses Layout als Standard speichern"):
+    if st.button("💾 Layout speichern & Feierabend"):
         st.session_state.saved_tickers = current_tickers
         pd.DataFrame({"ticker": current_tickers}).to_csv(chart_config_file, index=False)
-        st.success("✅ Diese Ticker werden beim nächsten Start automatisch geladen!")
+        st.success("✅ Alles sicher gespeichert. Schönen Feierabend!")
