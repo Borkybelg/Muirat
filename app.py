@@ -108,7 +108,7 @@ if check_password():
         def show_class(category):
             sub = df[df['typ'] == category]
             if not sub.empty:
-                # Bereichs-Summen oben
+                # Bereichs-Summen (unverändert)
                 c1, c2, c3 = st.columns(3)
                 c1.metric(f"Wert {category}", f"{sub['Gesamtwert'].sum():,.2f} {curr_symbol}")
                 c2.metric("Profit/Verlust", f"{sub['Profit'].sum():,.2f} {curr_symbol}", f"{(sub['Profit'].sum()/sub['Investiert'].sum()*100):+.2f}%")
@@ -117,31 +117,35 @@ if check_password():
                 st.divider()
 
                 for idx, row in sub.iterrows():
-                    # Expander mit G/V Info im Titel
+                    # Expander Titel mit G/V
                     with st.expander(f"📌 {row['name']} ({row['ticker']}) | G/V: {row['Profit']:,.2f} {curr_symbol} ({row['Profit_Perc']:+.2f}%)"):
                         
-                        # ALLES IN EINER ZEILE (6 Spalten für maximale Übersicht)
-                        d1, d2, d3, d4, d5, d6 = st.columns([1, 1.5, 1.5, 1.5, 1, 1])
+                        # Die Hauptzeile (einzeilig wie gewünscht)
+                        d1, d2, d3, d4, d5, d6 = st.columns([1, 1.2, 1.2, 1.2, 0.8, 0.8])
                         
                         d1.write(f"**Anzahl:** {row['menge']}")
-                        d2.write(f"**EK:** {row['kaufpreis']:.2f} {curr_symbol}")
-                        d3.write(f"**Invest:** {row['Investiert']:,.2f} {curr_symbol}")
-                        d4.write(f"**Wert:** {row['Gesamtwert']:,.2f} {curr_symbol}")
+                        d2.write(f"**EK:** {row['kaufpreis']:.2f}")
+                        d3.write(f"**Invest:** {row['Investiert']:,.2f}")
+                        d4.write(f"**Wert:** {row['Gesamtwert']:,.2f}")
                         
-                        # Bearbeiten Button (Popover für sauberes UI)
+                        # BEARBEITEN POPOVER (mit Ticker-Korrektur)
                         with d5:
                             with st.popover("📝"):
                                 with st.form(f"edit_{idx}"):
-                                    st.write(f"Ändere {row['name']}")
-                                    new_m = st.number_input("Menge", value=float(row['menge']))
-                                    new_e = st.number_input("Kaufpreis", value=float(row['kaufpreis']))
+                                    st.subheader(f"Ändere {row['name']}")
+                                    # NEU: Ticker ändern möglich
+                                    new_t = st.text_input("Ticker", value=row['ticker'])
+                                    new_m = st.number_input("Menge", value=float(row['menge']), step=0.01)
+                                    new_e = st.number_input("Kaufpreis", value=float(row['kaufpreis']), step=0.01)
+                                    
                                     if st.form_submit_button("Speichern"):
+                                        df_base.at[idx, 'ticker'] = new_t.upper().strip()
                                         df_base.at[idx, 'menge'] = new_m
                                         df_base.at[idx, 'kaufpreis'] = new_e
                                         save_data(df_base)
                                         st.rerun()
 
-                        # Löschen Button
+                        # LÖSCHEN BUTTON
                         with d6:
                             if st.button("🗑️", key=f"del_{idx}"):
                                 save_data(df_base.drop(idx))
