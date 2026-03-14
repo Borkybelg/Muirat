@@ -108,43 +108,44 @@ if check_password():
         def show_class(category):
             sub = df[df['typ'] == category]
             if not sub.empty:
-                # Bereichs-Summen (wie im Bild)
+                # Bereichs-Summen oben
                 c1, c2, c3 = st.columns(3)
                 c1.metric(f"Wert {category}", f"{sub['Gesamtwert'].sum():,.2f} {curr_symbol}")
                 c2.metric("Profit/Verlust", f"{sub['Profit'].sum():,.2f} {curr_symbol}", f"{(sub['Profit'].sum()/sub['Investiert'].sum()*100):+.2f}%")
                 c3.metric("Investiert", f"{sub['Investiert'].sum():,.2f} {curr_symbol}")
                 
-                st.write("---") # Trennlinie für die Optik
+                st.divider()
 
                 for idx, row in sub.iterrows():
-                    # Der Titel des Expanders zeigt jetzt schon den Gewinn
-                    with st.expander(f"{row['name']} ({row['ticker']}) | G/V: {row['Profit']:,.2f} {curr_symbol}"):
+                    # Expander mit G/V Info im Titel
+                    with st.expander(f"📌 {row['name']} ({row['ticker']}) | G/V: {row['Profit']:,.2f} {curr_symbol} ({row['Profit_Perc']:+.2f}%)"):
                         
-                        # --- NEUE DETAIL-REIHE ---
-                        d1, d2, d3, d4 = st.columns(4)
-                        d1.write(f"**Menge:** {row['menge']}")
-                        d2.write(f"**EK-Preis:** {row['kaufpreis']:.2f} {curr_symbol}")
-                        d3.write(f"**Gesamt-EK:** {row['Investiert']:,.2f} {curr_symbol}")
-                        d4.write(f"**Akt. Wert:** {row['Gesamtwert']:,.2f} {curr_symbol}")
+                        # ALLES IN EINER ZEILE (6 Spalten für maximale Übersicht)
+                        d1, d2, d3, d4, d5, d6 = st.columns([1, 1.5, 1.5, 1.5, 1, 1])
                         
-                        # Buttons nebeneinander
-                        btn_col1, btn_col2 = st.columns([1, 4])
-                        with btn_col1:
-                            if st.button("🗑️ Löschen", key=f"del_{idx}"):
-                                save_data(df_base.drop(idx))
-                                st.rerun()
+                        d1.write(f"**Anzahl:** {row['menge']}")
+                        d2.write(f"**EK:** {row['kaufpreis']:.2f} {curr_symbol}")
+                        d3.write(f"**Invest:** {row['Investiert']:,.2f} {curr_symbol}")
+                        d4.write(f"**Wert:** {row['Gesamtwert']:,.2f} {curr_symbol}")
                         
-                        with btn_col2:
-                            # Kleiner Bearbeitungs-Bereich innerhalb des Expanders
-                            with st.popover("📝 Bearbeiten"):
+                        # Bearbeiten Button (Popover für sauberes UI)
+                        with d5:
+                            with st.popover("📝"):
                                 with st.form(f"edit_{idx}"):
-                                    new_menge = st.number_input("Menge", value=float(row['menge']))
-                                    new_ek = st.number_input("Kaufpreis (EK)", value=float(row['kaufpreis']))
+                                    st.write(f"Ändere {row['name']}")
+                                    new_m = st.number_input("Menge", value=float(row['menge']))
+                                    new_e = st.number_input("Kaufpreis", value=float(row['kaufpreis']))
                                     if st.form_submit_button("Speichern"):
-                                        df_base.at[idx, 'menge'] = new_menge
-                                        df_base.at[idx, 'kaufpreis'] = new_ek
+                                        df_base.at[idx, 'menge'] = new_m
+                                        df_base.at[idx, 'kaufpreis'] = new_e
                                         save_data(df_base)
                                         st.rerun()
+
+                        # Löschen Button
+                        with d6:
+                            if st.button("🗑️", key=f"del_{idx}"):
+                                save_data(df_base.drop(idx))
+                                st.rerun()
         with t2: show_class("Aktie")
         with t3: show_class("Krypto")
         with t4: show_class("ETF")
