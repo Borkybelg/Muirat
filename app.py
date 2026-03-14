@@ -108,21 +108,43 @@ if check_password():
         def show_class(category):
             sub = df[df['typ'] == category]
             if not sub.empty:
-                # SUMMEN FÜR BEREICH
+                # Bereichs-Summen (wie im Bild)
                 c1, c2, c3 = st.columns(3)
                 c1.metric(f"Wert {category}", f"{sub['Gesamtwert'].sum():,.2f} {curr_symbol}")
                 c2.metric("Profit/Verlust", f"{sub['Profit'].sum():,.2f} {curr_symbol}", f"{(sub['Profit'].sum()/sub['Investiert'].sum()*100):+.2f}%")
                 c3.metric("Investiert", f"{sub['Investiert'].sum():,.2f} {curr_symbol}")
                 
-                for idx, row in sub.iterrows():
-                    with st.expander(f"{row['name']} | G/V: {row['Profit']:,.2f} {curr_symbol} ({row['Profit_Perc']:+.2f}%)"):
-                        colA, colB, colC = st.columns(3)
-                        colA.write(f"**Menge:** {row['menge']}")
-                        colB.write(f"**EK:** {row['kaufpreis']:.2f}")
-                        colC.write(f"**Kurs:** {row['Kurs_Aktuell']:.2f}")
-                        if st.button("🗑️ Löschen", key=f"del_{idx}"):
-                            save_data(df_base.drop(idx)); st.rerun()
+                st.write("---") # Trennlinie für die Optik
 
+                for idx, row in sub.iterrows():
+                    # Der Titel des Expanders zeigt jetzt schon den Gewinn
+                    with st.expander(f"{row['name']} ({row['ticker']}) | G/V: {row['Profit']:,.2f} {curr_symbol}"):
+                        
+                        # --- NEUE DETAIL-REIHE ---
+                        d1, d2, d3, d4 = st.columns(4)
+                        d1.write(f"**Menge:** {row['menge']}")
+                        d2.write(f"**EK-Preis:** {row['kaufpreis']:.2f} {curr_symbol}")
+                        d3.write(f"**Gesamt-EK:** {row['Investiert']:,.2f} {curr_symbol}")
+                        d4.write(f"**Akt. Wert:** {row['Gesamtwert']:,.2f} {curr_symbol}")
+                        
+                        # Buttons nebeneinander
+                        btn_col1, btn_col2 = st.columns([1, 4])
+                        with btn_col1:
+                            if st.button("🗑️ Löschen", key=f"del_{idx}"):
+                                save_data(df_base.drop(idx))
+                                st.rerun()
+                        
+                        with btn_col2:
+                            # Kleiner Bearbeitungs-Bereich innerhalb des Expanders
+                            with st.popover("📝 Bearbeiten"):
+                                with st.form(f"edit_{idx}"):
+                                    new_menge = st.number_input("Menge", value=float(row['menge']))
+                                    new_ek = st.number_input("Kaufpreis (EK)", value=float(row['kaufpreis']))
+                                    if st.form_submit_button("Speichern"):
+                                        df_base.at[idx, 'menge'] = new_menge
+                                        df_base.at[idx, 'kaufpreis'] = new_ek
+                                        save_data(df_base)
+                                        st.rerun()
         with t2: show_class("Aktie")
         with t3: show_class("Krypto")
         with t4: show_class("ETF")
