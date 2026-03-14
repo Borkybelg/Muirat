@@ -8,7 +8,7 @@ from datetime import datetime
 import streamlit.components.v1 as components
 
 # --- 0. KONFIGURATION ---
-st.set_page_config(page_title="Investment Center Pro & Terminal", layout="wide")
+st.set_page_config(page_title="Investment Center Pro", layout="wide")
 filename = "portfolio.csv"
 history_file = "history.csv"
 
@@ -51,123 +51,131 @@ def load_data():
 def save_data(df_to_save):
     df_to_save.to_csv(filename, index=False)
 
-def load_history():
-    if not os.path.exists(history_file) or os.stat(history_file).st_size == 0:
-        return pd.DataFrame(columns=["datum", "ticker", "menge", "ek", "vk", "gewinn"])
-    return pd.read_csv(history_file)
+@st.cache_data(ttl=300)
+def get_currency_rate(from_curr, to_curr):
+    if from_curr == to_curr or not from_curr: return 1.0
+    try: return yf.Ticker(f"{from_curr}{to_curr}=X").fast_info.last_price
+    except: return 1.0
 
 @st.cache_data(ttl=120)
-def get_prices_info(tickers, types):
+def get_prices_info(tickers, types, target_curr):
     results = {}
     for t, typ in zip(tickers, types):
         try:
             sym = str(t).strip().upper()
             if typ == "Krypto" and "-USD" not in sym: sym = f"{sym}-USD"
             t_obj = yf.Ticker(sym)
-            results[t.lower()] = {"price": t_obj.fast_info.last_price, "curr": t_obj.fast_info.currency}
+            info = t_obj.fast_info
+            rate = get_currency_rate(info.currency, target_curr)
+            results[t.lower()] = {"price": info.last_price * rate, "curr": info.currency}
         except: results[t.lower()] = {"price": 0.0, "curr": "USD"}
     return results
 
-# --- SIDEBAR (Kommando-Zentrale) ---
+# --- SIDEBAR ---
 with st.sidebar:
-    st.header("⚙️ Menü")
-    base_currency = st.radio("Währung:", ["EUR", "USD"])
+    st.header("⚙️ Steuerung")
+    base_currency = st.radio("Portfolio-Währung:", ["EUR", "USD"])
     curr_symbol = "€" if base_currency == "EUR" else "$"
     
     st.divider()
     st.subheader("🌡️ Sentiment")
     try:
         r = requests.get("https://api.alternative.me/fng/").json()
-        fng_val = r['data'][0]['value']
-        fng_class = r['data'][0]['value_classification']
+        fng_val, fng_class = r['data'][0]['value'], r['data'][0]['value_classification']
         st.metric("Crypto Fear & Greed", f"{fng_val}/100", fng_class)
     except: st.write("F&G: N/A")
+    st.markdown("[📊 CNN Fear & Greed](https://edition.cnn.com/markets/fear-and-greed)")
     
     st.divider()
-    st.subheader("📺 Terminal Setup")
-    num_charts = st.slider("Anzahl Fenster", 1, 16, 4)
+    num_charts = st.slider("Trading Fenster", 1, 16, 4)
     cols_layout = st.select_slider("Spalten", options=[1, 2, 3, 4], value=2)
 
 # ==========================================================
-# TEIL 1: MARKT MONITOR (TICKERS)
+# TEIL 1: GLOBALER MARKT MONITOR (ALLE TICKER)
 # ==========================================================
 st.subheader("📊 Global Market Watch")
-m_tickers = {"DAX": "^GDAXI", "S&P 500": "^GSPC", "Nasdaq": "^NDX", "Gold": "GC=F", "BTC-EUR": "BTC-EUR"}
-m_cols = st.columns(len(m_tickers))
-for i, (n, s) in enumerate(m_tickers.items()):
+m_tickers = {
+    "DAX": "^GDAXI", "S&P 500": "^GSPC", "Nasdaq": "^NDX", "Dow Jones": "^DJI",
+    "Gold": "GC=F", "Silber": "SI=F", "Öl": "BZ=F", "VIX": "^VIX",
+    "BTC-EUR": "BTC-EUR", "ETH-USD": "ETH-USD", "EUR/TRY": "EURTRY=X"
+}
+m_cols = st.columns(6)
+for i, (name, sym) in enumerate(m_tickers.items()):
     try:
-        val = yf.Ticker(s).fast_info.last_price
-        m_cols[i].metric(n, f"{val:,.2f}")
-    except: m_cols[i].metric(n, "Error")
+        val = yf.Ticker(sym).fast_info.last_price
+        m_cols[i % 6].metric(name, f"{val:,.2f}")
+    except: m_cols[i % 6].metric(name, "Error")
 
 st.divider()
 
 # ==========================================================
-# TEIL 2: PORTFOLIO SUMME & ASSETS
+# TEIL 2: PORTFOLIO & SUMMEN (AUTOMATISCHE WÄHRUNG)
 # ==========================================================
 df_base = load_data()
 if not df_base.empty:
-    p_info = get_prices_info(df_base['ticker'].tolist(), df_base['typ'].tolist())
+    p_info = get_prices_info(df_base['ticker'].tolist(), df_base['typ'].tolist(), base_currency)
     df = df_base.copy()
     df['Kurs_T'] = df['ticker'].str.lower().apply(lambda x: p_info.get(x, {}).get('price', 0))
     df['Wert_T'] = df['menge'] * df['Kurs_T']
-    df['Invest_T'] = df['menge'] * df['kaufpreis']
+    df['Invest_T'] = df['menge'] * df['kaufpreis'] # Achtung: EK sollte in base_currency gepflegt sein
     df['Profit_T'] = df['Wert_T'] - df['Invest_T']
-    
-    # Metriken Oben
-    c1, c2, c3 = st.columns(3)
-    c1.metric("Portfolio Wert", f"{df['Wert_T'].sum():,.2f} {curr_symbol}")
-    c2.metric("Investiert", f"{df['Invest_T'].sum():,.2f} {curr_symbol}")
-    c3.metric("Profit", f"{df['Profit_T'].sum():,.2f} {curr_symbol}")
 
-    with st.expander("📂 Portfolio Details anzeigen"):
-        st.dataframe(df[['name', 'ticker', 'typ', 'menge', 'Kurs_T', 'Wert_T']], use_container_width=True)
+    # METRIKEN NACH ASSET-KLASSE
+    st.subheader("💰 Portfolio Zusammenfassung")
+    total_val = df['Wert_T'].sum()
+    
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("Gesamt Portfolio", f"{total_val:,.2f} {curr_symbol}")
+    
+    # Klassen-Summen berechnen
+    for cat, col in zip(["Aktie", "Krypto", "ETF"], [c2, c3, c4]):
+        cat_sum = df[df['typ'] == cat]['Wert_T'].sum()
+        col.metric(f"Summe {cat}", f"{cat_sum:,.2f} {curr_symbol}")
+
+    with st.expander("📂 Detail-Liste & Asset-Verteilung"):
+        col_list, col_pie = st.columns([2, 1])
+        col_list.dataframe(df[['name', 'ticker', 'typ', 'menge', 'Wert_T']], use_container_width=True)
+        col_pie.plotly_chart(px.pie(df, values='Wert_T', names='typ', title="Verteilung"), use_container_width=True)
 
 st.divider()
 
 # ==========================================================
-# TEIL 3: MULTI-CHART TERMINAL (BIS ZU 16 FENSTER)
+# TEIL 3: MULTI-CHART TERMINAL (16 FENSTER)
 # ==========================================================
-st.header("🖼️ TradingView Pro Terminal")
+st.header("🖼️ TradingView Multi-Terminal")
 
-def render_chart(symbol, index):
-    html_code = f"""
+def render_tv(symbol, index):
+    html = f"""
     <div id="tv_{index}" style="height:400px;"></div>
     <script src="https://s3.tradingview.com/tv.js"></script>
     <script>
-    new TradingView.widget({{"autosize": true, "symbol": "{symbol}", "interval": "D", "timezone": "Europe/Berlin", "theme": "dark", "style": "1", "locale": "de", "enable_publishing": false, "withdateranges": true, "hide_side_toolbar": false, "allow_symbol_change": true, "container_id": "tv_{index}"}});
+    new TradingView.widget({{"autosize": true, "symbol": "{symbol}", "interval": "D", "theme": "dark", "style": "1", "locale": "de", "enable_publishing": false, "container_id": "tv_{index}"}});
     </script>"""
-    components.html(html_code, height=410)
+    components.html(html, height=410)
 
 tv_grid = st.columns(cols_layout)
 for i in range(num_charts):
     with tv_grid[i % cols_layout]:
-        # Standard-Ticker Logik
-        default_t = "BINANCE:BTCUSDT"
-        if i == 0: default_t = "CRYPTOCAP:TOTAL"
-        elif i == 1: default_t = "CRYPTOCAP:TOTAL2"
+        default_ticker = "BINANCE:BTCUSDT"
+        if i == 0: default_ticker = "CRYPTOCAP:TOTAL"
+        elif i == 1: default_ticker = "CRYPTOCAP:TOTAL2"
         
-        t_input = st.text_input(f"Fenster {i+1}", value=default_t, key=f"v_{i}")
-        render_chart(t_input, i)
+        t_in = st.text_input(f"Fenster {i+1}", value=default_ticker, key=f"chart_{i}")
+        render_tv(t_in, i)
 
 # ==========================================================
-# TEIL 4: BACKUP & NEU (Ganz unten)
+# TEIL 4: TOOLS & NEU
 # ==========================================================
 st.divider()
-with st.expander("🛠️ Administration & Backup"):
-    col_add, col_back = st.columns(2)
-    with col_add:
-        st.subheader("➕ Neues Asset")
+with st.expander("🛠️ Administration"):
+    c_new, c_back = st.columns(2)
+    with c_new:
         with st.form("new"):
-            nt = st.text_input("Ticker")
-            nn = st.text_input("Name")
-            nm = st.number_input("Menge", min_value=0.0)
-            nk = st.number_input("Kaufpreis")
+            nt, nn = st.text_input("Ticker"), st.text_input("Name")
+            nm, nk = st.number_input("Menge"), st.number_input("Kaufpreis")
             ny = st.selectbox("Typ", ["Aktie", "Krypto", "ETF"])
             if st.form_submit_button("Hinzufügen"):
-                new_row = pd.DataFrame([{"ticker": nt.upper(), "name": nn, "menge": nm, "kaufpreis": nk, "typ": ny}])
-                save_data(pd.concat([df_base, new_row], ignore_index=True))
+                save_data(pd.concat([df_base, pd.DataFrame([{"ticker": nt.upper(), "name": nn, "menge": nm, "kaufpreis": nk, "typ": ny}])], ignore_index=True))
                 st.rerun()
-    with col_back:
-        st.subheader("💾 Datensicherung")
-        st.download_button("Download CSV", df_base.to_csv(index=False), "portfolio.csv")
+    with c_back:
+        st.download_button("💾 Backup CSV", df_base.to_csv(index=False), "portfolio.csv")
