@@ -73,9 +73,10 @@ if check_password():
     st.subheader("📊 Global Market Watch")
     m_tickers = {
         "DAX": "^GDAXI", "S&P 500": "^GSPC", "Nasdaq": "^NDX", "Dow Jones": "^DJI",
-        "Gold": "GC=F", "Silber": "SI=F", "Öl": "BZ=F", "VIX": "^VIX",
+        "SDAX": "^SDAXI", "TecDAX": "^TECDAX", "Russell 2k": "^RUT", 
         "BTC-USD": "BTC-USD", "ETH-USD": "ETH-USD", "ETH-EUR": "ETH-EUR", 
-        "SDAX": "^SDAXI", "TecDAX": "^TECDAX", "Russell 2k": "^RUT", "EUR/TRY": "EURTRY=X"
+        "Gold": "GC=F", "Silber": "SI=F", "Öl": "BZ=F", "VIX": "^VIX", "EUR/TRY": "EURTRY=X"
+        
     }
     m_cols = st.columns(6)
     for i, (n, s) in enumerate(m_tickers.items()):
