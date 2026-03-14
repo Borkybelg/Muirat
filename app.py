@@ -7,8 +7,55 @@ import plotly.express as px
 from datetime import datetime
 import streamlit.components.v1 as components
 
-chart_config_file = "charts_config.csv"
+# ==========================================================
+    # --- TERMINAL DAS SICH ALLES MERKT ---
+    # ==========================================================
+    st.markdown("---")
+    st.header("🖼️ Multi-Chart Terminal")
 
+    # Datei-Pfad für Chart-Speicher
+    chart_config_file = "charts_config.csv"
+
+    # Initiales Laden der Ticker aus der Datei beim ersten Start
+    if "saved_tickers" not in st.session_state:
+        if os.path.exists(chart_config_file):
+            try:
+                st.session_state.saved_tickers = pd.read_csv(chart_config_file)['ticker'].tolist()
+            except:
+                st.session_state.saved_tickers = ["BINANCE:BTCUSDT"] * 16
+        else:
+            st.session_state.saved_tickers = ["BINANCE:BTCUSDT"] * 16
+
+    def render_tv_chart(symbol, index):
+        html_code = f"""
+        <div id="tv_{index}" style="height:450px;"></div>
+        <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
+        <script type="text/javascript">
+        new TradingView.widget({{
+          "autosize": true, "symbol": "{symbol}", "interval": "D", "timezone": "Europe/Berlin",
+          "theme": "dark", "style": "1", "locale": "de", "enable_publishing": false,
+          "allow_symbol_change": true, "container_id": "tv_{index}"
+        }});
+        </script> """
+        components.html(html_code, height=460)
+
+    tv_cols = st.columns(cols_layout)
+    new_tickers = []
+
+    for i in range(num_charts):
+        with tv_cols[i % cols_layout]:
+            # Wir nehmen den Wert aus dem Session State
+            default_val = st.session_state.saved_tickers[i] if i < len(st.session_state.saved_tickers) else "BINANCE:BTCUSDT"
+            
+            t_input = st.text_input(f"Fenster {i+1}", value=default_val, key=f"tv_input_{i}")
+            new_tickers.append(t_input)
+            render_tv_chart(t_input, i)
+
+    # Speicher-Logik
+    if st.button("💾 Layout für immer speichern"):
+        st.session_state.saved_tickers = new_tickers # Session aktualisieren
+        pd.DataFrame({"ticker": new_tickers}).to_csv(chart_config_file, index=False) # Datei schreiben
+        st.success("✅ Gespeichert! Die Ticker bleiben jetzt auch beim Refresh.")
 # --- 0. KONFIGURATION ---
 st.set_page_config(page_title="Investment Center Pro", layout="wide")
 filename = "portfolio.csv"
