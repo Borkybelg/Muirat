@@ -7,6 +7,8 @@ import plotly.express as px
 from datetime import datetime
 import streamlit.components.v1 as components
 
+chart_config_file = "charts_config.csv"
+
 # --- 0. KONFIGURATION ---
 st.set_page_config(page_title="Investment Center Pro", layout="wide")
 filename = "portfolio.csv"
