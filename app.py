@@ -108,7 +108,7 @@ if check_password():
         def show_class(category):
             sub = df[df['typ'] == category]
             if not sub.empty:
-                # Bereichs-Summen (unverändert)
+                # Bereichs-Summen oben
                 c1, c2, c3 = st.columns(3)
                 c1.metric(f"Wert {category}", f"{sub['Gesamtwert'].sum():,.2f} {curr_symbol}")
                 c2.metric("Profit/Verlust", f"{sub['Profit'].sum():,.2f} {curr_symbol}", f"{(sub['Profit'].sum()/sub['Investiert'].sum()*100):+.2f}%")
@@ -117,39 +117,42 @@ if check_password():
                 st.divider()
 
                 for idx, row in sub.iterrows():
-                    # Expander Titel mit G/V
+                    # Farbe für die Prozentanzeige bestimmen
+                    color = "green" if row['Profit_Perc'] >= 0 else "red"
+                    
                     with st.expander(f"📌 {row['name']} ({row['ticker']}) | G/V: {row['Profit']:,.2f} {curr_symbol} ({row['Profit_Perc']:+.2f}%)"):
                         
-                        # Die Hauptzeile (einzeilig wie gewünscht)
-                        d1, d2, d3, d4, d5, d6 = st.columns([1, 1.2, 1.2, 1.2, 0.8, 0.8])
+                        # Jetzt 7 Spalten, damit die Prozentzahl Platz hat
+                        d1, d2, d3, d4, d5, d6, d7 = st.columns([1, 1.2, 1.2, 1.8, 1.2, 0.6, 0.6])
                         
                         d1.write(f"**Anzahl:** {row['menge']}")
                         d2.write(f"**EK:** {row['kaufpreis']:.2f}")
                         d3.write(f"**Invest:** {row['Investiert']:,.2f}")
-                        d4.write(f"**Wert:** {row['Gesamtwert']:,.2f}")
                         
-                        # BEARBEITEN POPOVER (mit Ticker-Korrektur)
-                        with d5:
+                        # Wert UND Prozent in eine Spalte kombiniert für bessere Optik
+                        d4.markdown(f"**Wert:** {row['Gesamtwert']:,.2f} <span style='color:{color}; font-weight:bold;'>({row['Profit_Perc']:+.2f}%)</span>", unsafe_allow_html=True)
+                        
+                        # Kursanzeige zur Kontrolle
+                        d5.write(f"**Kurs:** {row['Kurs_Aktuell']:.2f}")
+
+                        # Bearbeiten
+                        with d6:
                             with st.popover("📝"):
                                 with st.form(f"edit_{idx}"):
-                                    st.subheader(f"Ändere {row['name']}")
-                                    # NEU: Ticker ändern möglich
+                                    st.subheader(f"Edit {row['name']}")
                                     new_t = st.text_input("Ticker", value=row['ticker'])
                                     new_m = st.number_input("Menge", value=float(row['menge']), step=0.01)
                                     new_e = st.number_input("Kaufpreis", value=float(row['kaufpreis']), step=0.01)
-                                    
                                     if st.form_submit_button("Speichern"):
                                         df_base.at[idx, 'ticker'] = new_t.upper().strip()
                                         df_base.at[idx, 'menge'] = new_m
                                         df_base.at[idx, 'kaufpreis'] = new_e
-                                        save_data(df_base)
-                                        st.rerun()
+                                        save_data(df_base); st.rerun()
 
-                        # LÖSCHEN BUTTON
-                        with d6:
+                        # Löschen
+                        with d7:
                             if st.button("🗑️", key=f"del_{idx}"):
-                                save_data(df_base.drop(idx))
-                                st.rerun()
+                                save_data(df_base.drop(idx)); st.rerun()
         with t2: show_class("Aktie")
         with t3: show_class("Krypto")
         with t4: show_class("ETF")
