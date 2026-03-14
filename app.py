@@ -11,13 +11,13 @@ import streamlit.components.v1 as components
 st.set_page_config(page_title="Investment Center Pro", layout="wide")
 filename = "portfolio.csv"
 
-# --- CSS Styling ---
+# --- CSS Styling für das Design ---
 st.markdown("""
     <style>
     .block-container { padding-top: 1rem; }
     iframe { border-radius: 8px; border: 1px solid #444; }
     .stMetric { background-color: #1e2130; padding: 15px; border-radius: 10px; border-left: 5px solid #00ff88; }
-    .header-box { padding: 10px; border-radius: 5px; background: #262730; margin: 20px 0 10px 0; border-left: 5px solid #ff4b4b; }
+    .header-box { padding: 10px; border-radius: 5px; background: #262730; margin: 20px 0 10px 0; border-left: 5px solid #ff4b4b; color: white; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -77,9 +77,15 @@ with st.sidebar:
     st.divider()
     num_charts = st.slider("Trading Fenster", 1, 16, 4)
     cols_layout = st.select_slider("Spalten", options=[1, 2, 3, 4], value=2)
+    st.divider()
+    try:
+        r = requests.get("https://api.alternative.me/fng/").json()
+        fng_val = r['data'][0]['value']
+        st.metric("Crypto Fear & Greed", f"{fng_val}/100")
+    except: pass
 
 # ==========================================================
-# TEIL 1: MARKT MONITOR
+# TEIL 1: MARKT MONITOR (OBEN)
 # ==========================================================
 st.subheader("📊 Global Market Watch")
 m_tickers = {"DAX": "^GDAXI", "S&P 500": "^GSPC", "Nasdaq": "^NDX", "Gold": "GC=F", "Öl": "BZ=F", "VIX": "^VIX", "BTC-EUR": "BTC-EUR"}
@@ -93,11 +99,13 @@ for i, (name, sym) in enumerate(m_tickers.items()):
 st.divider()
 
 # ==========================================================
-# TEIL 2: PORTFOLIO MIT LÖSCH-FUNKTION
+# TEIL 2: PORTFOLIO BEREICH (GETRENNT)
 # ==========================================================
 df_base = load_data()
 
-if not df_base.empty:
+if df_base.empty:
+    st.warning("⚠️ Dein Portfolio ist noch leer. Scrolle nach ganz unten, um Assets hinzuzufügen!")
+else:
     p_info = get_prices_info(df_base['ticker'].tolist(), df_base['typ'].tolist(), base_currency)
     df = df_base.copy()
     df['Kurs_Aktuell'] = df['ticker'].str.lower().apply(lambda x: p_info.get(x, {}).get('price', 0))
@@ -105,47 +113,45 @@ if not df_base.empty:
     df['Investiert'] = df['menge'] * df['kaufpreis']
     df['G_V_Euro'] = df['Gesamtwert'] - df['Investiert']
     
-    st.title(f"💰 Gesamtportfolio: {df['Gesamtwert'].sum():,.2f} {curr_symbol}")
+    # 🏆 GESAMT KAPITAL ANZEIGE
+    total_val = df['Gesamtwert'].sum()
+    total_profit = df['G_V_Euro'].sum()
+    total_perc = (total_profit / df['Investiert'].sum() * 100) if df['Investiert'].sum() > 0 else 0
+    
+    st.markdown(f"<div class='header-box'><h1 style='text-align:center;'>💰 Gesamt Kapital: {total_val:,.2f} {curr_symbol}</h1></div>", unsafe_allow_html=True)
+    st.columns(3)[1].metric("Gesamt Gewinn/Verlust", f"{total_profit:,.2f} {curr_symbol}", f"{total_perc:+.2f}%")
 
+    # 📂 ABTEILUNGEN (AKTIEN, KRYPTO, ETF)
     for cat in ["Aktie", "Krypto", "ETF"]:
         sub = df[df['typ'] == cat]
-        st.markdown(f"<div class='header-box'><h3>📦 {cat} Abteilung</h3></div>", unsafe_allow_html=True)
-        
-        if sub.empty:
-            st.info(f"Keine Assets in {cat} vorhanden.")
-        else:
-            # Metriken für die Abteilung
+        if not sub.empty:
+            st.markdown(f"### 📦 {cat} Abteilung")
             w_sum = sub['Gesamtwert'].sum()
             p_sum = sub['G_V_Euro'].sum()
             perc = (p_sum / sub['Investiert'].sum() * 100) if sub['Investiert'].sum() > 0 else 0
             
-            m1, m2, m3 = st.columns([2, 2, 1])
-            m1.metric(f"Wert {cat}", f"{w_sum:,.2f} {curr_symbol}")
-            m2.metric("Gewinn / Verlust", f"{p_sum:,.2f} {curr_symbol}", f"{perc:+.2f}%")
+            c1, c2 = st.columns(2)
+            c1.metric(f"Summe {cat}", f"{w_sum:,.2f} {curr_symbol}")
+            c2.metric("G/V Abteilung", f"{p_sum:,.2f} {curr_symbol}", f"{perc:+.2f}%")
             
-            if m3.button(f"Alle {cat}s löschen", key=f"del_all_{cat}"):
-                df_base = df_base[df_base['typ'] != cat]
-                save_data(df_base); st.rerun()
-
-            # Einzelne Assets auflisten mit Lösch-Button
-            for idx, row in sub.iterrows():
-                with st.expander(f"🔹 {row['name']} ({row['ticker']}) | Wert: {row['Gesamtwert']:,.2f} {curr_symbol}"):
-                    c1, c2, c3 = st.columns(3)
-                    c1.write(f"**Menge:** {row['menge']}")
-                    c2.write(f"**Kurs:** {row['Kurs_Aktuell']:,.2f}")
-                    c3.write(f"**G/V:** {row['G_V_Euro']:,.2f} {curr_symbol}")
-                    if st.button(f"🗑️ {row['name']} löschen", key=f"del_single_{idx}"):
+            with st.expander(f"Details für {cat} anzeigen"):
+                for idx, row in sub.iterrows():
+                    col_a, col_b, col_c = st.columns([3, 2, 1])
+                    col_a.write(f"**{row['name']}** ({row['ticker']})")
+                    col_b.write(f"Wert: {row['Gesamtwert']:,.2f} {curr_symbol} (G/V: {row['G_V_Euro']:,.2f})")
+                    if col_c.button("🗑️", key=f"del_{idx}"):
                         df_base = df_base.drop(idx)
                         save_data(df_base); st.rerun()
-        st.divider()
+            st.divider()
 
 # ==========================================================
-# TEIL 3: TRADINGVIEW & TOOLS
+# TEIL 3: TRADING TERMINAL
 # ==========================================================
+st.markdown("---")
 st.header("🖼️ Trading Terminal")
-tv_cols = st.columns(cols_layout)
+tv_grid = st.columns(cols_layout)
 for i in range(num_charts):
-    with tv_cols[i % cols_layout]:
+    with tv_grid[i % cols_layout]:
         t_in = st.text_input(f"Fenster {i+1}", value="BINANCE:BTCUSDT", key=f"chart_{i}")
         components.html(f"""
             <div id="tv_{i}" style="height:350px;"></div>
@@ -153,19 +159,24 @@ for i in range(num_charts):
             <script>new TradingView.widget({{"autosize": true, "symbol": "{t_in}", "interval": "D", "theme": "dark", "container_id": "tv_{i}"}});</script>
         """, height=360)
 
+# ==========================================================
+# TEIL 4: ADMINISTRATION (Ganz unten)
+# ==========================================================
 st.divider()
-with st.expander("🛠️ Administration (Neu hinzufügen / Restore)"):
+with st.expander("🛠️ Administration (Asset hinzufügen / Backup)"):
     col1, col2 = st.columns(2)
     with col1:
-        with st.form("new_asset"):
+        with st.form("new"):
+            st.subheader("➕ Neues Asset")
             nt, nn = st.text_input("Ticker"), st.text_input("Name")
             nm, nk = st.number_input("Menge"), st.number_input("Kaufpreis")
             ny = st.selectbox("Typ", ["Aktie", "Krypto", "ETF"])
-            if st.form_submit_button("Asset Speichern"):
-                new_data = pd.concat([df_base, pd.DataFrame([{"ticker": nt.upper(), "name": nn, "menge": nm, "kaufpreis": nk, "typ": ny}])], ignore_index=True)
-                save_data(new_data); st.rerun()
+            if st.form_submit_button("Speichern"):
+                new_df = pd.concat([df_base, pd.DataFrame([{"ticker": nt.upper(), "name": nn, "menge": nm, "kaufpreis": nk, "typ": ny}])], ignore_index=True)
+                save_data(new_df); st.rerun()
     with col2:
-        up_file = st.file_uploader("Backup (CSV) hochladen", type="csv")
-        if up_file and st.button("CSV jetzt einspielen"):
-            save_data(pd.read_csv(up_file)); st.rerun()
-        st.download_button("💾 Backup jetzt herunterladen", df_base.to_csv(index=False), "portfolio.csv")
+        st.subheader("💾 Backup & Restore")
+        st.download_button("Download Portfolio", df_base.to_csv(index=False), "portfolio.csv")
+        up = st.file_uploader("Upload CSV")
+        if up and st.button("Restore"):
+            save_data(pd.read_csv(up)); st.rerun()
