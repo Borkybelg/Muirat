@@ -173,17 +173,17 @@ if check_password():
                 st.divider()
                 # --- ENDE NEU ---
 
-                for idx, row in sub.iterrows():
-                    with st.expander(f"⚙️ {row['name']} ({row['ticker'].upper()}) | {row['Profit_%']:+.2f}%"):
+            for idx, row in sub.iterrows():
+                with st.expander(f"⚙️ {row['name']} ({row['ticker'].upper()}) | {row['Profit_%']:+.2f}%"):
                     # ... (Dein restlicher Code für die Eingabefelder bleibt gleich)
-                    c_n, c_name_edit, c_q, c_e = st.columns(4)
-                    n_ticker = c_n.text_input("Ticker", value=row['ticker'], key=f"n_{idx}")
-                    n_desc = c_name_edit.text_input("Beschreibung", value=row['name'], key=f"desc_{idx}")
-                    n_qty = c_q.number_input("Menge", value=float(row['menge']), key=f"q_{idx}")
-                    n_ek = c_e.number_input(f"EK ({row['Orig_C']})", value=float(row['kaufpreis']), key=f"e_{idx}")
+                c_n, c_name_edit, c_q, c_e = st.columns(4)
+                n_ticker = c_n.text_input("Ticker", value=row['ticker'], key=f"n_{idx}")
+                n_desc = c_name_edit.text_input("Beschreibung", value=row['name'], key=f"desc_{idx}")
+                n_qty = c_q.number_input("Menge", value=float(row['menge']), key=f"q_{idx}")
+                n_ek = c_e.number_input(f"EK ({row['Orig_C']})", value=float(row['kaufpreis']), key=f"e_{idx}")
                         
-                    # (Speichern-Logik etc. wie gehabt)
-                    # ...
+                # (Speichern-Logik etc. wie gehabt)
+                # ...
                 
                 sub_disp = sub[['name', 'ticker', 'menge', 'Kurs_T', 'Wert_T', 'Profit_T', 'Profit_%']].copy()
                 sub_disp['Profit_%'] = sub_disp['Profit_%'].map("{:+.2f}%".format)
