@@ -3,227 +3,363 @@ import pandas as pd
 import yfinance as yf
 import os
 import requests
-import plotly.express as px
-from datetime import datetime
 import streamlit.components.v1 as components
 
-# --- 0. KONFIGURATION ---
-st.set_page_config(page_title="Investment Center Pro", layout="wide")
-filename = "portfolio.csv"
-history_file = "history.csv"
-chart_config_file = "charts_config.csv"
 
-# --- 1. PASSWORT-LOGIK ---
-def password_entered():
-    if st.session_state["password"].strip().lower() == "pa":
-        st.session_state["password_correct"] = True
-        st.session_state["password"] = ""
-    else: st.session_state["password_correct"] = False
 
-def check_password():
-    if st.session_state.get("password_correct", False): return True
-    st.title("🔐 Sicherer Zugriff")
-    st.text_input("Passwort:", type="password", on_change=password_entered, key="password")
-    return False
+# Wechselkurse 1 Stunde lang speichern (spart pro Klick ca. 5-8 Sekunden)
+@st.cache_data(ttl=3600)
+def get_fx_rate_cached(from_curr, to_curr):
+    if not from_curr or from_curr == to_curr: return 1.0
+    try:
+        pair = f"{from_curr}{to_curr}=X"
+        return yf.Ticker(pair).fast_info.last_price
+    except: return 1.0
 
-if check_password():
-    # --- SIDEBAR ---
-    with st.sidebar:
-        st.header("⚙️ Menü")
-        base_currency = st.radio("Währung:", ["EUR", "USD"])
-        curr_symbol = "€" if base_currency == "EUR" else "$"
-        st.divider()
-        st.subheader("🌡️ Markt-Sentiment")
-        try:
-            r = requests.get("https://api.alternative.me/fng/").json()
-            st.metric("Crypto Fear & Greed", f"{r['data'][0]['value']}/100", r['data'][0]['value_classification'])
-        except: st.write("Crypto F&G: N/A")
-        st.markdown("[📊 Aktien Fear & Greed (CNN)](https://edition.cnn.com/markets/fear-and-greed)")
-        st.divider()
-        num_charts = st.slider("Anzahl Charts", 1, 16, 4)
-        cols_layout = st.select_slider("Spalten", options=[1, 2, 3, 4], value=2)
-
-    # --- DATEN-FUNKTIONEN ---
-    def load_data():
-        cols = ["ticker", "name", "menge", "kaufpreis", "typ"] 
-        if not os.path.exists(filename) or os.stat(filename).st_size == 0:
-            return pd.DataFrame(columns=cols)
-        df = pd.read_csv(filename)
-        if "name" not in df.columns: df["name"] = df["ticker"]
-        return df[cols]
-
-    def save_data(df_to_save):
-        df_to_save.to_csv(filename, index=False)
-
-    @st.cache_data(ttl=120)
-    def get_prices_info(tickers, types, target_curr):
-        results = {}
-        for t, typ in zip(tickers, types):
+# Preise 2 Minuten lang speichern
+@st.cache_data(ttl=120)
+def get_batch_prices(ticker_list):
+    if not ticker_list: return {}
+    data = yf.download(ticker_list, period="5d", interval="1d", progress=False)
+    prices = {}
+    if not data.empty:
+        for t in ticker_list:
             try:
-                sym = str(t).strip().upper()
-                if typ == "Krypto" and "-USD" not in sym: sym = f"{sym}-USD"
-                t_obj = yf.Ticker(sym)
-                info = t_obj.fast_info
-                rate = yf.Ticker(f"{info.currency}{target_curr}=X").fast_info.last_price if info.currency != target_curr else 1.0
-                results[t.lower()] = {"price": info.last_price * rate, "rate": rate}
-            except: results[t.lower()] = {"price": 0.0, "rate": 1.0}
-        return results
+                # Schneller Zugriff auf die letzte Close-Spalte
+                series = data['Close'][t].dropna() if len(ticker_list) > 1 else data['Close'].dropna()
+                prices[t] = series.iloc[-1]
+            except: prices[t] = None
+    return prices
 
-    # --- MARKT MONITOR (ALLE TICKER) ---
-    st.subheader("📊 Global Market Watch")
-    m_tickers = {
-        "DAX": "^GDAXI", "S&P 500": "^GSPC", "Nasdaq": "^NDX", "Dow Jones": "^DJI",
-        "SDAX": "^SDAXI",  "MDAX": "^MDAXI", "TecDAX": "^TECDAX", "Russell 2k": "^RUT", 
-         "Nikkei 225": "^N225", "China 50": "XIN9.FGI", "BTC-USD": "BTC-USD", "ETH-USD": "ETH-USD", "ETH-EUR": "ETH-EUR", 
-        "Gold": "GC=F", "Silber": "SI=F", "Öl": "BZ=F", "VIX": "^VIX", "EUR/TRY": "EURTRY=X"
+# --- 0. KONFIGURATION & SPEICHERUNG ---
+st.set_page_config(page_title="Investment Center Pro 2026", layout="wide")
+
+filename = "portfolio.csv"
+chart_config_file = "charts_config.csv"
+signal_watchlist_file = "signals_watchlist.csv"
+
+# --- 1. TECHNISCHE FUNKTIONEN (RSI, EMA, FX) ---
+def calculate_signals(df):
+    if len(df) < 50: 
+        return {"rsi": 50, "ema20": 0, "trend": "Neutral", "cvd": 0, "oi": 0, "sentiment": "Neutral"}
         
+        # --- FÜGE DIESE FUNKTION OBEN IM CODE EIN (ca. Zeile 50-70) ---
+
+def get_sector_performance():
+    sectors = {
+        "Technology (XLK)": "XLK",
+        "Energy (XLE)": "XLE",
+        "Health Care (XLV)": "XLV",
+        "Financials (XLF)": "XLF",
+        "Communication (XLC)": "XLC",
+        "Consumer Disc. (XLY)": "XLY",
+        "Industrials (XLI)": "XLI",
+        "Semiconductors (SOXX)": "SOXX"
     }
-    m_cols = st.columns(6)
-    for i, (n, s) in enumerate(m_tickers.items()):
-        try:
-            val = yf.Ticker(s).fast_info.last_price
-            m_cols[i % 6].metric(n, f"{val:,.2f}")
-        except: m_cols[i % 6].metric(n, "Err")
-
-    st.divider()
-    df_base = load_data()
-
-    if not df_base.empty:
-        p_info = get_prices_info(df_base['ticker'].tolist(), df_base['typ'].tolist(), base_currency)
-        df = df_base.copy()
-        df['Kurs_Aktuell'] = df['ticker'].str.lower().apply(lambda x: p_info.get(x, {}).get('price', 0))
-        df['Rate'] = df['ticker'].str.lower().apply(lambda x: p_info.get(x, {}).get('rate', 1.0))
-        df['Gesamtwert'] = df['menge'] * df['Kurs_Aktuell']
-        df['Investiert'] = df['menge'] * df['kaufpreis'] * df['Rate']
-        df['Profit'] = df['Gesamtwert'] - df['Investiert']
-        df['Profit_Perc'] = (df['Profit'] / df['Investiert'] * 100).fillna(0)
-
-        # ÜBERSICHT (MIT GESAMTSUMME)
-        st.title(f"💰 Portfolio: {df['Gesamtwert'].sum():,.2f} {curr_symbol}")
-        
-        t1, t2, t3, t4 = st.tabs(["🌍 Übersicht", "📈 Aktien", "₿ Krypto", "📊 ETFs"])
-        with t1:
-            st.dataframe(df[['name', 'ticker', 'menge', 'kaufpreis', 'Kurs_Aktuell', 'Gesamtwert', 'Profit']], use_container_width=True)
-
-        def show_class(category):
-            sub = df[df['typ'] == category]
-            if not sub.empty:
-                # Bereichs-Summen oben
-                c1, c2, c3 = st.columns(3)
-                c1.metric(f"Wert {category}", f"{sub['Gesamtwert'].sum():,.2f} {curr_symbol}")
-                c2.metric("Profit/Verlust", f"{sub['Profit'].sum():,.2f} {curr_symbol}", f"{(sub['Profit'].sum()/sub['Investiert'].sum()*100):+.2f}%")
-                c3.metric("Investiert", f"{sub['Investiert'].sum():,.2f} {curr_symbol}")
-                
-                st.divider()
-
-                for idx, row in sub.iterrows():
-                    # Farbe für die Prozentanzeige bestimmen
-                    color = "green" if row['Profit_Perc'] >= 0 else "red"
-                    
-                    with st.expander(f"📌 {row['name']} ({row['ticker']}) | G/V: {row['Profit']:,.2f} {curr_symbol} ({row['Profit_Perc']:+.2f}%)"):
-                        
-                        # Jetzt 7 Spalten, damit die Prozentzahl Platz hat
-                        d1, d2, d3, d4, d5, d6, d7 = st.columns([1, 1.2, 1.2, 1.8, 1.2, 0.6, 0.6])
-                        
-                        d1.write(f"**Anzahl:** {row['menge']}")
-                        d2.write(f"**EK:** {row['kaufpreis']:.2f}")
-                        d3.write(f"**Invest:** {row['Investiert']:,.2f}")
-                        
-                        # Wert UND Prozent in eine Spalte kombiniert für bessere Optik
-                        d4.markdown(f"**Wert:** {row['Gesamtwert']:,.2f} <span style='color:{color}; font-weight:bold;'>({row['Profit_Perc']:+.2f}%)</span>", unsafe_allow_html=True)
-                        
-                        # Kursanzeige zur Kontrolle
-                        d5.write(f"**Kurs:** {row['Kurs_Aktuell']:.2f}")
-
-                        # Bearbeiten
-                        with d6:
-                            with st.popover("📝"):
-                                with st.form(f"edit_{idx}"):
-                                    st.subheader(f"Edit {row['name']}")
-                                    new_t = st.text_input("Ticker", value=row['ticker'])
-                                    new_m = st.number_input("Menge", value=float(row['menge']), step=0.01)
-                                    new_e = st.number_input("Kaufpreis", value=float(row['kaufpreis']), step=0.01)
-                                    if st.form_submit_button("Speichern"):
-                                        df_base.at[idx, 'ticker'] = new_t.upper().strip()
-                                        df_base.at[idx, 'menge'] = new_m
-                                        df_base.at[idx, 'kaufpreis'] = new_e
-                                        save_data(df_base); st.rerun()
-
-                        # Löschen
-                        with d7:
-                            if st.button("🗑️", key=f"del_{idx}"):
-                                save_data(df_base.drop(idx)); st.rerun()
-        with t2: show_class("Aktie")
-        with t3: show_class("Krypto")
-        with t4: show_class("ETF")
-
-    # --- TOOLS ---
-    st.divider()
-    tc1, tc2, tc3 = st.columns(3)
-    with tc1: st.download_button("📥 Backup", df_base.to_csv(index=False), "portfolio.csv")
-    with tc2:
-        up = st.file_uploader("📤 Restore", type="csv")
-        if up and st.button("Einspielen"):
-            save_data(pd.read_csv(up)); st.rerun()
-    with tc3:
-        with st.expander("➕ Neu"):
-            with st.form("new"):
-                nt, nn, nm, nk = st.text_input("Ticker"), st.text_input("Name"), st.number_input("Menge"), st.number_input("EK")
-                ny = st.selectbox("Typ", ["Aktie", "Krypto", "ETF"])
-                if st.form_submit_button("Hinzufügen"):
-                    save_data(pd.concat([df_base, pd.DataFrame([{"ticker":nt.upper(),"name":nn,"menge":nm,"kaufpreis":nk,"typ":ny}])], ignore_index=True))
-                    st.rerun()
-
-    # --- TERMINAL (SPEICHERT JETZT RICHTIG) ---
-    # --- TERMINAL (TICKER-SUCHE INNERHALB DES CHARTS AKTIVIERT) ---
-    # --- TERMINAL (MIT VOLLER ZEICHEN-TOOLBAR) ---
-    st.markdown("---")
-    st.header("🖼️ Multi-Chart Terminal")
     
-    if "saved_tickers" not in st.session_state:
-        if os.path.exists(chart_config_file): 
-            st.session_state.saved_tickers = pd.read_csv(chart_config_file)['ticker'].tolist()
-        else: 
-            st.session_state.saved_tickers = ["BINANCE:BTCUSDT"] * 16
+    sec_results = []
+    try:
+        # Batch Download für alle Sektoren-ETFs
+        sec_data = yf.download(list(sectors.values()), period="5d", interval="1d", progress=False)['Close']
+        
+        for name, ticker in sectors.items():
+            if ticker in sec_data.columns:
+                series = sec_data[ticker].dropna()
+                if len(series) > 1:
+                    perf = ((series.iloc[-1] / series.iloc[0]) - 1) * 100
+                    sec_results.append({"Sektor": name, "Trend %": round(perf, 2)})
+    except Exception as e:
+        st.error(f"Sektor-Fehler: {e}")
+        
+    return pd.DataFrame(sec_results)
+    
+    delta = df['Close'].diff()
+    gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
+    loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
+    rs = gain / (loss + 1e-9)
+    rsi = 100 - (100 / (1 + rs))
+    ema20 = df['Close'].ewm(span=20, adjust=False).mean()
+    
+    # CVD & OI Proxy
+    vol_delta = (df['Close'] - df['Open']) / (df['High'] - df['Low'] + 1e-9) * df['Volume']
+    cvd = vol_delta.rolling(window=20).sum().iloc[-1]
+    oi_proxy = (df['Close'] * df['Volume']).rolling(window=20).mean().iloc[-1]
+    
+    last_p, last_rsi, last_ema20 = df['Close'].iloc[-1], rsi.iloc[-1], ema20.iloc[-1]
+    
+    # Sentiment & Trend
+    bull_score = 0
+    if last_p > last_ema20: bull_score += 1
+    if last_rsi < 60: bull_score += 1
+    if cvd > 0: bull_score += 1
+    sentiment = "BULLISH 🐂" if bull_score >= 2 else "BEARISH 🐻"
+    
+    if last_p > last_ema20 and last_rsi < 70: trend = "LONG 🟢"
+    elif last_p < last_ema20 and last_rsi > 30: trend = "SHORT 🔴"
+    else: trend = "WAIT 🟡"
+    
+    return {"rsi": last_rsi, "ema20": last_ema20, "trend": trend, "cvd": cvd, "oi": oi_proxy, "sentiment": sentiment}
 
-    tv_cols = st.columns(cols_layout)
-    current_tickers = []
+@st.cache_data(ttl=300)
+def get_fx_rate(from_curr, to_curr):
+    """Holt den Wechselkurs für ALLE Währungen (auch IDR, HKD, JPY)"""
+    if not from_curr or from_curr == to_curr: return 1.0
+    # Bereinigung von Yahoo-Sonderbezeichnungen
+    from_curr = str(from_curr).replace("ILA", "ILS").replace("GBp", "GBP")
+    try:
+        pair = f"{from_curr}{to_curr}=X"
+        rate = yf.Ticker(pair).fast_info.last_price
+        return rate if rate else 1.0
+    except:
+        return 1.0
+
+def get_live_data(ticker):
+    try:
+        t = yf.Ticker(ticker)
+        # Wir nutzen fast_info, da es viel schneller ist als t.info
+        fast = t.fast_info
+        return {
+            "price": fast.last_price, 
+            "currency": fast.currency, 
+            "name": ticker # Name weglassen spart Zeit (keine extra API-Abfrage)
+        }
+    except:
+        return None
+# --- 2. SIDEBAR (SENTIMENT & SETUP) ---
+with st.sidebar:
+    st.header("⚙️ Steuerung")
+    base_currency = st.radio("Basis-Währung:", ["EUR", "USD"])
+    st.divider()
+    st.subheader("⏱️ Signal-Intervall")
+    tf = st.selectbox("Timeframe:", ["5m", "30m", "1h", "4h", "8h", "12h", "1d"], index=6)
+    st.divider()
+    st.subheader("🌡️ Markt-Sentiment")
+    try:
+        r = requests.get("https://api.alternative.me/fng/").json()
+        fng = r['data'][0]['value']
+        st.metric("Fear & Greed", f"{fng}/100", r['data'][0]['value_classification'])
+        st.progress(int(fng)/100)
+    except: st.write("Sentiment N/A")
+    st.divider()
+    num_charts = st.slider("Anzahl Charts", 1, 16, 4)
+    cols_layout = st.select_slider("Spalten", [1, 2, 3, 4], 2)
+
+# --- 3. PASSWORT ---
+if "password_correct" not in st.session_state:
+    st.session_state["password_correct"] = False
+if not st.session_state["password_correct"]:
+    pwd = st.text_input("Sicherheitscode:", type="password")
+    if st.button("Anmelden") or (pwd.lower() == "pa"):
+        st.session_state["password_correct"] = True
+        st.rerun()
+    st.stop()
+
+# --- 4. GLOBAL MARKET WATCH ---
+st.subheader("📊 Global Market Watch")
+m_tickers = {"DAX": "^GDAXI", "Nasdaq 100": "^IXIC", "Dow Jones": "^DJI", "Brent": "BZ=F", "Gold": "GC=F", "BTC-USD": "BTC-USD"}
+m_cols = st.columns(len(m_tickers))
+for i, (n, s) in enumerate(m_tickers.items()):
+    try:
+        val = yf.Ticker(s).fast_info.last_price
+        m_cols[i].metric(n, f"{val:,.2f}")
+    except: m_cols[i].metric(n, "N/A")
+st.divider()
+
+t_port, t_sig, t_multi, t_sec = st.tabs(["💰 PORTFOLIO", "🚦 SIGNAL MONITOR", "🖼️ TERMINAL", "📈 SEKTOREN"])
+
+# --- TAB 1: PORTFOLIO ---
+with t_port:
+    st.subheader("🔍 Neues Asset suchen & Portfolio erweitern")
+    with st.expander("➕ Asset-Eingabemaske", expanded=True):
+        with st.form("quick_add"):
+            c1, c2, c3, c4, c5 = st.columns([1.5, 1, 1, 1, 1])
+            ntick = c1.text_input("Ticker (z.B. AAPL, 0700.HK)")
+            nname = c2.text_input("Name (optional)")
+            nqty = c3.number_input("Menge", format="%.4f")
+            nek = c4.number_input("EK (Lokalwährung)", format="%.2f")
+            ncat = c5.selectbox("Typ", ["Aktie", "Krypto", "ETF"])
+            if st.form_submit_button("➕ Hinzufügen"):
+                info = get_live_data(ntick)
+                if info:
+                    fname = nname if nname else info['name']
+                    nrow = pd.DataFrame([{"ticker":ntick.upper(),"name":fname,"menge":nqty,"kaufpreis":nek,"typ":ncat,"curr":info['currency']}])
+                    if os.path.exists(filename):
+                        pd.concat([pd.read_csv(filename), nrow]).to_csv(filename, index=False)
+                    else: nrow.to_csv(filename, index=False)
+                    st.success(f"{fname} hinzugefügt!"); st.rerun()
+                else: st.error("Ticker nicht gefunden!")
+
+    if os.path.exists(filename):
+        df = pd.read_csv(filename).dropna(subset=['ticker'])
+        if not df.empty:
+            results = []
+            for idx, row in df.iterrows():
+                live = get_live_data(row['ticker'])
+                
+                if live and live['price'] > 0:
+                    cp = live['price']
+                    asset_curr = live['currency'] # Erkennt z.B. IDR für UNVR.JK
+                    
+                    # Holt den Kurs von z.B. IDR zu EUR
+                    rate = get_fx_rate(asset_curr, base_currency)
+                    
+                    # Umrechnung: Menge * Preis * Wechselkurs
+                    val_base = row['menge'] * cp * rate
+                    inv_base = row['menge'] * row['kaufpreis'] * rate
+                    gv_base = val_base - inv_base
+                    
+                    results.append({
+                        **row, 
+                        "Wert": val_base, 
+                        "Invest": inv_base, 
+                        "GV": gv_base, 
+                        "orig_idx": idx
+                    })
+                else:
+                    st.warning(f"⚠️ Keine Daten für: {row['ticker']}")
+
+            rdf = pd.DataFrame(results)
+            
+            # --- Anzeige der korrekten Gesamtsumme ---
+            total_v = rdf['Wert'].sum()
+            total_gv = rdf['GV'].sum()
+            total_inv = rdf['Invest'].sum()
+            total_p = (total_gv / total_inv * 100) if total_inv > 0 else 0
+            
+            st.metric(f"🏦 GESAMTDEPOT ({base_currency})", 
+                      f"{total_v:,.2f} {base_currency}", 
+                      f"{total_p:+.2f}% ({total_gv:,.2f})")
+            
+            rdf = pd.DataFrame(results)
+            st.metric(f"🏦 GESAMT ({base_currency})", f"{rdf['Wert'].sum():,.2f}", f"{(rdf['GV'].sum() / rdf['Invest'].sum() * 100) if rdf['Invest'].sum() > 0 else 0:+.2f}%")
+            
+            for k in ["Aktie", "Krypto", "ETF"]:
+                sub = rdf[rdf['typ'] == k]
+                if not sub.empty:
+                    st.subheader(f"🔹 {k}s (Summe: {sub['Wert'].sum():,.2f} | G/V: {sub['GV'].sum():+.2f})")
+                    for _, r in sub.iterrows():
+                        c1, c2, c3, c4, c5, c6 = st.columns([2, 1.5, 1.5, 1.5, 0.5, 0.5])
+                        c1.write(f"**{r['name']}** ({r['ticker']})")
+                        c2.write(f"{r['Wert']:,.2f} {base_currency}")
+                        c3.write(f"{r['GV']:+.2f}")
+                        c4.write(f"M: {r['menge']}")
+                        with c5:
+                            with st.popover("📝"):
+                                with st.form(f"ed_{r['orig_idx']}"):
+                                    et = st.text_input("Ticker", r['ticker'])
+                                    en = st.text_input("Name", r['name'])
+                                    em = st.number_input("Menge", float(r['menge']))
+                                    ee = st.number_input("EK", float(r['kaufpreis']))
+                                    if st.form_submit_button("OK"):
+                                        df.at[r['orig_idx'], 'ticker'], df.at[r['orig_idx'], 'name'], df.at[r['orig_idx'], 'menge'], df.at[r['orig_idx'], 'kaufpreis'] = et.upper(), en, em, ee
+                                        df.to_csv(filename, index=False); st.rerun()
+                        if c6.button("🗑️", key=f"del_{r['orig_idx']}"):
+                            df.drop(r['orig_idx']).to_csv(filename, index=False); st.rerun()
+
+    st.divider()
+    cd, cu = st.columns(2)
+    if os.path.exists(filename): cd.download_button("📥 Download", pd.read_csv(filename).to_csv(index=False), "portfolio.csv")
+    up = cu.file_uploader("📤 Upload", type="csv")
+    if up: pd.read_csv(up).to_csv(filename, index=False); st.rerun()
+
+# --- TAB 2: SIGNAL MONITOR ---
+with t_sig:
+    s_watch = pd.read_csv(signal_watchlist_file)['ticker'].tolist() if os.path.exists(signal_watchlist_file) else ["^GDAXI", "BTC-USD"]
+    with st.form("s_add"):
+        ns = st.text_input("Ticker zur Watchlist speichern:")
+        if st.form_submit_button("Add"):
+            if ns and ns.upper() not in s_watch:
+                s_watch.append(ns.upper()); pd.DataFrame({"ticker": s_watch}).to_csv(signal_watchlist_file, index=False); st.rerun()
+    
+    for t in s_watch:
+        try:
+            sd = yf.download(t, period="2mo", interval=(tf if tf in ["5m", "1h", "1d"] else "1h"), progress=False)
+            if not sd.empty:
+                if isinstance(sd.columns, pd.MultiIndex): sd.columns = sd.columns.get_level_values(0)
+                if tf in ["4h", "8h", "12h"]: sd = sd.resample(tf).agg({'Open':'first','High':'max','Low':'min','Close':'last','Volume':'sum'})
+                sig = calculate_signals(sd)
+                c1, c2, c3, c4, c5, c6 = st.columns([1, 1, 1, 1, 1, 0.5])
+                c1.write(f"**{t}**")
+                c2.write(f"RSI: {sig['rsi']:.1f}")
+                c3.write(f"{sig['sentiment']}")
+                c4.write(f"CVD: {'📈' if sig['cvd'] > 0 else '📉'}")
+                color = "green" if "LONG" in sig['trend'] else "red" if "SHORT" in sig['trend'] else "gray"
+                c5.markdown(f"<div style='background-color:{color}; color:white; padding:5px; text-align:center; border-radius:5px;'>{sig['trend']}</div>", unsafe_allow_html=True)
+                if c6.button("🗑️", key=f"ds_{t}"):
+                    s_watch.remove(t); pd.DataFrame({"ticker": s_watch}).to_csv(signal_watchlist_file, index=False); st.rerun()
+        except: pass
+
+# --- TAB 3: TERMINAL ---
+with t_multi:
+    # Lade gespeicherte Ticker oder Standardwerte
+    saved_t = pd.read_csv(chart_config_file)['ticker'].tolist() if os.path.exists(chart_config_file) else ["BTCUSD"] * 16
+    
+    # Timeframe-Mapping für TradingView
+    tv_tf = {"5m":"5","30m":"30","1h":"60","4h":"240","8h":"480","12h":"720","1d":"D"}.get(tf, "D")
+    
+    t_cols = st.columns(cols_layout)
+    curr_t = []
     
     for i in range(num_charts):
-        with tv_cols[i % cols_layout]:
-            val = st.session_state.saved_tickers[i] if i < len(st.session_state.saved_tickers) else "BINANCE:BTCUSDT"
-            t_in = st.text_input(f"Fenster {i+1}", value=val, key=f"tv_input_{i}")
-            current_tickers.append(t_in)
+        with t_cols[i % cols_layout]:
+            # Falls die Liste kürzer als num_charts ist, nimm BTCUSD
+            v = saved_t[i] if i < len(saved_t) else "BTCUSD"
             
-            # DAS VOLLE WIDGET MIT TOOLBAR
+            # Hier definieren wir 'ti' - achte darauf, dass der Name gleich bleibt!
+            ti = st.text_input(f"Fenster {i+1}", v, key=f"tm_{i}")
+            curr_t.append(ti)
+            
+            # Das HTML-Widget mit den korrekten f-String Klammern
             components.html(f"""
-            <div id="tv_{i}" style="height:500px;"></div>
-            <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
-            <script type="text/javascript">
-            new TradingView.widget({{
-              "autosize": true,
-              "symbol": "{t_in}",
-              "interval": "D",
-              "timezone": "Europe/Berlin",
-              "theme": "dark",
-              "style": "1",
-              "locale": "de",
-              "enable_publishing": false,
-              "hide_side_toolbar": false,     // ZEIGT DIE ZEICHEN-TOOLS LINKS
-              "allow_symbol_change": true,    // ERMÖGLICHT SUCHE IM CHART
-              "save_image": true,             // ERMÖGLICHT SCREENSHOTS
-              "details": true,
-              "hotlist": true,
-              "calendar": true,
-              "show_popup_button": true,      // ERMÖGLICHT GROSSANSICHT
-              "popup_width": "1000",
-              "popup_height": "650",
-              "container_id": "tv_{i}"
-            }});
-            </script>
-            """, height=510)
+                <div id="tv_{i}" style="height:450px;"></div>
+                <script src="https://s3.tradingview.com/tv.js"></script>
+                <script>
+                new TradingView.widget({{
+                  "autosize": true,
+                  "symbol": "{ti}",
+                  "interval": "{tv_tf}",
+                  "timezone": "Europe/Berlin",
+                  "theme": "dark",
+                  "style": "1",
+                  "locale": "de",
+                  "toolbar_bg": "#f1f3f6",
+                  "enable_publishing": false,
+                  "hide_side_toolbar": false,
+                  "allow_symbol_change": true,
+                  "container_id": "tv_{i}"
+                }});
+                </script>
+            """, height=460)
 
-    if st.button("💾 Layout speichern & Feierabend"):
-        st.session_state.saved_tickers = current_tickers
-        pd.DataFrame({"ticker": current_tickers}).to_csv(chart_config_file, index=False)
-        st.success("✅ Alles sicher gespeichert. Schönen Feierabend!")
+    if st.button("💾 Charts Speichern"):
+        pd.DataFrame({"ticker": curr_t}).to_csv(chart_config_file, index=False)
+        st.success("Konfiguration gespeichert!")
+
+# --- TAB 4: SEKTOREN ---
+with t_sec:
+    st.subheader("🌐 Globaler Sektor-Trend (5 Tage)")
+    
+    with st.spinner('Analysiere Sektoren...'):
+        sec_df = get_sector_performance()
+    
+    if not sec_df.empty:
+        # Sortieren: Beste Sektoren nach oben
+        sec_df = sec_df.sort_values(by="Trend %", ascending=False)
+        
+        # Anzeige in Kacheln (4 pro Reihe)
+        rows = [sec_df.iloc[i:i+4] for i in range(0, len(sec_df), 4)]
+        
+        for row_data in rows:
+            cols = st.columns(4)
+            for i, (idx, row) in enumerate(row_data.iterrows()):
+                color = "#2ecc71" if row['Trend %'] > 0 else "#e74c3c"
+                cols[i].markdown(f"""
+                    <div style="background-color:#1e1e1e; padding:15px; border-radius:10px; border-top: 4px solid {color}; text-align:center;">
+                        <p style="margin:0; font-size:12px; color:#bdc3c7; text-transform:uppercase;">{row['Sektor'].split(' (')[0]}</p>
+                        <h3 style="margin:0; color:{color};">{row['Trend %']:+.2f}%</h3>
+                        <small style="color:#7f8c8d;">{row['Sektor'].split('(')[1].replace(')','')}</small>
+                    </div>
+                """, unsafe_allow_html=True)
+        
+        st.divider()
+        st.caption("Daten basieren auf den US-Sektor-ETFs (XLK, XLE, SOXX etc.) als globale Benchmarks.")        
