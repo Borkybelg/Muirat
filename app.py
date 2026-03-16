@@ -42,8 +42,46 @@ signal_watchlist_file = "signals_watchlist.csv"
 def calculate_signals(df):
     if len(df) < 50: 
         return {"rsi": 50, "ema20": 0, "trend": "Neutral", "cvd": 0, "oi": 0, "sentiment": "Neutral"}
-        
-        # --- FÜGE DIESE FUNKTION OBEN IM CODE EIN (ca. Zeile 50-70) ---
+    
+    # RSI Berechnung
+    delta = df['Close'].diff()
+    gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
+    loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
+    rs = gain / (loss + 1e-9)
+    rsi_val = 100 - (100 / (1 + rs))
+    
+    # EMA 20
+    ema20 = df['Close'].ewm(span=20, adjust=False).mean()
+    
+    # CVD & OI Proxy (Volumen-Analyse)
+    vol_delta = (df['Close'] - df['Open']) / (df['High'] - df['Low'] + 1e-9) * df['Volume']
+    cvd_val = vol_delta.rolling(window=20).sum().iloc[-1]
+    oi_proxy = (df['Close'] * df['Volume']).rolling(window=20).mean().iloc[-1]
+    
+    last_p = df['Close'].iloc[-1]
+    last_rsi = rsi_val.iloc[-1]
+    last_ema = ema20.iloc[-1]
+    
+    # Sentiment & Trend Logik
+    bull_score = 0
+    if last_p > last_ema: bull_score += 1
+    if last_rsi < 60: bull_score += 1
+    if cvd_val > 0: bull_score += 1
+    
+    sentiment = "BULLISH 🚀" if bull_score >= 2 else "BEARISH 📉"
+    
+    if last_p > last_ema and last_rsi < 70: trend = "LONG 🟢"
+    elif last_p < last_ema and last_rsi > 30: trend = "SHORT 🔴"
+    else: trend = "WAIT 🟡"
+    
+    return {
+        "rsi": last_rsi, 
+        "ema20": last_ema, 
+        "trend": trend, 
+        "cvd": cvd_val, 
+        "oi": oi_proxy, 
+        "sentiment": sentiment
+    }
 
 def get_sector_performance():
     sectors = {
