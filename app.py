@@ -170,10 +170,10 @@ t_port, t_sig, t_multi, t_sec = st.tabs(["💰 PORTFOLIO", "🚦 SIGNAL MONITOR"
 # --- TAB 1: PORTFOLIO ---
 with t_port:
     st.subheader("🔍 Neues Asset suchen & Portfolio erweitern")
-    with st.expander("➕ Asset-Eingabemaske", expanded=True):
+    with st.expander("➕ Asset-Eingabemaske", expanded=False):
         with st.form("quick_add"):
             c1, c2, c3, c4, c5 = st.columns([1.5, 1, 1, 1, 1])
-            ntick = c1.text_input("Ticker (z.B. AAPL, 0700.HK)")
+            ntick = c1.text_input("Ticker (z.B. AAPL, BTC-USD)")
             nname = c2.text_input("Name (optional)")
             nqty = c3.number_input("Menge", format="%.4f")
             nek = c4.number_input("EK (Lokalwährung)", format="%.2f")
@@ -195,73 +195,88 @@ with t_port:
             results = []
             for idx, row in df.iterrows():
                 live = get_live_data(row['ticker'])
-                
                 if live and live['price'] > 0:
                     cp = live['price']
-                    asset_curr = live['currency'] # Erkennt z.B. IDR für UNVR.JK
-                    
-                    # Holt den Kurs von z.B. IDR zu EUR
+                    asset_curr = live['currency'] 
                     rate = get_fx_rate(asset_curr, base_currency)
-                    
-                    # Umrechnung: Menge * Preis * Wechselkurs
                     val_base = row['menge'] * cp * rate
                     inv_base = row['menge'] * row['kaufpreis'] * rate
-                    gv_base = val_base - inv_base
-                    
-                    results.append({
-                        **row, 
-                        "Wert": val_base, 
-                        "Invest": inv_base, 
-                        "GV": gv_base, 
-                        "orig_idx": idx
-                    })
-                else:
-                    st.warning(f"⚠️ Keine Daten für: {row['ticker']}")
+                    results.append({**row, "Wert": val_base, "Invest": inv_base, "GV": val_base - inv_base, "orig_idx": idx})
 
             rdf = pd.DataFrame(results)
-            
-            # --- Anzeige der korrekten Gesamtsumme ---
             total_v = rdf['Wert'].sum()
             total_gv = rdf['GV'].sum()
             total_inv = rdf['Invest'].sum()
             total_p = (total_gv / total_inv * 100) if total_inv > 0 else 0
             
-            st.metric(f"🏦 GESAMTDEPOT ({base_currency})", 
-                      f"{total_v:,.2f} {base_currency}", 
-                      f"{total_p:+.2f}% ({total_gv:,.2f})")
+            st.metric(f"🏦 GESAMTDEPOT ({base_currency})", f"{total_v:,.2f} {base_currency}", f"{total_p:+.2f}% ({total_gv:,.2f})")
+            st.divider()
+
+            # --- VISUALISIERUNG ---
+            col_chart, col_stats = st.columns([2, 1])
+            with col_chart:
+                import plotly.express as px
+                chart_data = rdf.groupby('typ')['Wert'].sum().reset_index()
+                fig = px.pie(chart_data, values='Wert', names='typ', hole=0.5,
+                             color_discrete_map={'Aktie':'#3498db', 'Krypto':'#f1c40f', 'ETF':'#9b59b6'})
+                fig.update_layout(margin=dict(t=0, b=0, l=0, r=0), height=250)
+                st.plotly_chart(fig, use_container_width=True)
             
-            rdf = pd.DataFrame(results)
-            st.metric(f"🏦 GESAMT ({base_currency})", f"{rdf['Wert'].sum():,.2f}", f"{(rdf['GV'].sum() / rdf['Invest'].sum() * 100) if rdf['Invest'].sum() > 0 else 0:+.2f}%")
-            
+            with col_stats:
+                st.write("🏆 **Bester Performer**")
+                top_r = rdf.loc[rdf['GV'].idxmax()]
+                st.success(f"{top_r['name']}: {top_r['GV']:+.2f}")
+                st.write("📉 **Größter Verlust**")
+                flop_r = rdf.loc[rdf['GV'].idxmin()]
+                st.error(f"{flop_r['name']}: {flop_r['GV']:+.2f}")
+
+            st.divider()
+
+            # --- GRUPPIERTE AUFTEILUNG (EXPANDER) ---
             for k in ["Aktie", "Krypto", "ETF"]:
                 sub = rdf[rdf['typ'] == k]
                 if not sub.empty:
-                    st.subheader(f"🔹 {k}s (Summe: {sub['Wert'].sum():,.2f} | G/V: {sub['GV'].sum():+.2f})")
-                    for _, r in sub.iterrows():
-                        c1, c2, c3, c4, c5, c6 = st.columns([2, 1.5, 1.5, 1.5, 0.5, 0.5])
-                        c1.write(f"**{r['name']}** ({r['ticker']})")
-                        c2.write(f"{r['Wert']:,.2f} {base_currency}")
-                        c3.write(f"{r['GV']:+.2f}")
-                        c4.write(f"M: {r['menge']}")
-                        with c5:
-                            with st.popover("📝"):
-                                with st.form(f"ed_{r['orig_idx']}"):
-                                    et = st.text_input("Ticker", r['ticker'])
-                                    en = st.text_input("Name", r['name'])
-                                    em = st.number_input("Menge", float(r['menge']))
-                                    ee = st.number_input("EK", float(r['kaufpreis']))
-                                    if st.form_submit_button("OK"):
-                                        df.at[r['orig_idx'], 'ticker'], df.at[r['orig_idx'], 'name'], df.at[r['orig_idx'], 'menge'], df.at[r['orig_idx'], 'kaufpreis'] = et.upper(), en, em, ee
-                                        df.to_csv(filename, index=False); st.rerun()
-                        if c6.button("🗑️", key=f"del_{r['orig_idx']}"):
-                            df.drop(r['orig_idx']).to_csv(filename, index=False); st.rerun()
+                    s_wert = sub['Wert'].sum()
+                    s_gv = sub['GV'].sum()
+                    with st.expander(f"📦 {k}s (Summe: {s_wert:,.2f} | G/V: {s_gv:+.2f})", expanded=True):
+                        # Spaltenüberschriften
+                        h1, h2, h3, h4, h5 = st.columns([2, 1.5, 1.5, 1, 0.8])
+                        h1.caption("NAME")
+                        h2.caption(f"WERT ({base_currency})")
+                        h3.caption("G/V")
+                        h4.caption("MENGE")
+                        h5.caption("AKTION")
+
+                        for _, r in sub.iterrows():
+                            c1, c2, c3, c4, c5 = st.columns([2, 1.5, 1.5, 1, 0.8])
+                            c1.write(f"**{r['name']}**")
+                            c2.write(f"{r['Wert']:,.2f}")
+                            color = "green" if r['GV'] >= 0 else "red"
+                            c3.markdown(f"<span style='color:{color}; font-weight:bold;'>{r['GV']:+.2f}</span>", unsafe_allow_html=True)
+                            c4.write(f"{r['menge']}")
+                            
+                            # Bearbeiten & Löschen nebeneinander
+                            with c5:
+                                col_edit, col_del = st.columns(2)
+                                with col_edit:
+                                    with st.popover("📝"):
+                                        with st.form(f"ed_{r['orig_idx']}"):
+                                            et = st.text_input("Ticker", r['ticker'])
+                                            en = st.text_input("Name", r['name'])
+                                            em = st.number_input("Menge", float(r['menge']))
+                                            ee = st.number_input("EK", float(r['kaufpreis']))
+                                            if st.form_submit_button("OK"):
+                                                df.at[r['orig_idx'], 'ticker'], df.at[r['orig_idx'], 'name'], df.at[r['orig_idx'], 'menge'], df.at[r['orig_idx'], 'kaufpreis'] = et.upper(), en, em, ee
+                                                df.to_csv(filename, index=False); st.rerun()
+                                with col_del:
+                                    if st.button("🗑️", key=f"del_{r['orig_idx']}"):
+                                        df.drop(r['orig_idx']).to_csv(filename, index=False); st.rerun()
 
     st.divider()
     cd, cu = st.columns(2)
-    if os.path.exists(filename): cd.download_button("📥 Download", pd.read_csv(filename).to_csv(index=False), "portfolio.csv")
-    up = cu.file_uploader("📤 Upload", type="csv")
+    if os.path.exists(filename): cd.download_button("📥 Backup CSV", pd.read_csv(filename).to_csv(index=False), "portfolio.csv")
+    up = cu.file_uploader("📤 CSV Wiederherstellen", type="csv")
     if up: pd.read_csv(up).to_csv(filename, index=False); st.rerun()
-
 # --- TAB 2: SIGNAL MONITOR ---
 with t_sig:
     s_watch = pd.read_csv(signal_watchlist_file)['ticker'].tolist() if os.path.exists(signal_watchlist_file) else ["^GDAXI", "BTC-USD"]
