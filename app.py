@@ -410,20 +410,53 @@ with t_port:
                                                 df_edit.to_csv(filename, index=False)
                                                 st.rerun()
 
-                                # 2. TEILVERKAUF / LÖSCHEN
+                                # 2. VERKAUF MIT PREISABFRAGE
                                 with col_sell:
                                     with st.popover("💰"):
-                                        st.write(f"**Verkauf: {r['name']}**")
-                                        sell_qty = st.number_input("Menge verkaufen", min_value=0.0001, max_value=float(r['menge']), value=float(r['menge']), step=0.01, key=f"sell_val_{r['orig_idx']}")
+                                        st.subheader(f"Verkauf: {r['name']}")
                                         
-                                        if st.button("Verkauf bestätigen", key=f"conf_sell_{r['orig_idx']}", use_container_width=True):
+                                        # Preisberechnung (Live-Preis als Vorschlag)
+                                        akt_preis_vorschlag = float(r['Wert'] / r['menge']) if r['menge'] > 0 else 0.0
+                                        
+                                        # EINGABE: Verkaufspreis
+                                        v_preis = st.number_input(
+                                            f"Verkaufspreis ({base_currency})", 
+                                            value=akt_preis_vorschlag,
+                                            format="%.2f",
+                                            key=f"vpx_{r['orig_idx']}"
+                                        )
+                                        
+                                        # EINGABE: Menge
+                                        v_menge = st.number_input(
+                                            "Menge verkaufen", 
+                                            min_value=0.0001, 
+                                            max_value=float(r['menge']), 
+                                            value=float(r['menge']),
+                                            step=0.01,
+                                            key=f"vqt_{r['orig_idx']}"
+                                        )
+                                        
+                                        # BERECHNUNG: Ertrag & Gewinn
+                                        erhalt = v_preis * v_menge
+                                        trade_gv = (v_preis - r['kaufpreis']) * v_menge
+                                        
+                                        st.divider()
+                                        st.write(f"💵 Cash-Erhalt: **{erhalt:,.2f} {base_currency}**")
+                                        
+                                        color_t = "green" if trade_gv >= 0 else "red"
+                                        st.markdown(f"📈 Trade-G/V: <span style='color:{color_t}; font-weight:bold;'>{trade_gv:+.2f}</span>", unsafe_allow_html=True)
+                                        
+                                        if st.button("Verkauf bestätigen", key=f"vbtn_{r['orig_idx']}", use_container_width=True):
                                             df_sell = pd.read_csv(filename)
-                                            if sell_qty >= r['menge']:
+                                            if v_menge >= r['menge']:
+                                                # Wenn alles verkauft wird -> Zeile löschen
                                                 df_sell = df_sell.drop(r['orig_idx'])
                                             else:
-                                                df_sell.at[r['orig_idx'], 'menge'] = r['menge'] - sell_qty
+                                                # Wenn Teilverkauf -> Menge reduzieren
+                                                df_sell.at[r['orig_idx'], 'menge'] = r['menge'] - v_menge
                                             
                                             df_sell.to_csv(filename, index=False)
+                                            st.success("Transaktion gespeichert!")
                                             st.rerun()
 
     st.divider()
