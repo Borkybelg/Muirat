@@ -4,7 +4,61 @@ import yfinance as yf
 import os
 import requests
 import streamlit.components.v1 as components
+import streamlit as st
+import requests
+import feedparser # Falls Fehlermeldung: im Terminal 'pip install feedparser' eingeben
 
+def get_free_crypto_news():
+    # Wir mischen die Feeds von CoinTelegraph und CoinDesk
+    feeds = [
+        "https://cointelegraph.com/rss/tag/bitcoin",
+        "https://www.coindesk.com/arc/outboundfeeds/rss/"
+    ]
+    all_news = []
+    for url in feeds:
+        try:
+            feed = feedparser.parse(url)
+            for entry in feed.entries[:3]: # Die neuesten 3 pro Seite
+                all_news.append({
+                    "title": entry.title,
+                    "link": entry.link,
+                    "source": "CoinDesk" if "coindesk" in url else "CoinTelegraph"
+                })
+        except:
+            continue
+    return all_news
+
+def get_crypto_panic_news():
+    # Ohne Key nutzen wir den öffentlichen RSS-Feed/API-Endpoint, der manchmal begrenzt ist
+    # Hol dir am besten einen kostenlosen Key auf cryptopanic.com
+    api_key = "DEIN_KEY_HIER" 
+    url = f"https://cryptopanic.com/api/v1/posts/?auth_token={api_key}&public=true&kind=news"
+    try:
+        r = requests.get(url, timeout=5)
+        data = r.json()
+        return data.get('results', [])
+    except:
+        return []
+def get_yahoo_news_safe(ticker="^GDAXI"):
+    try:
+        t = yf.Ticker(ticker)
+        news = t.news
+        if not news:
+            news = yf.Ticker("^GDAXI").news
+        return news
+    except:
+        return []
+
+# Das hier ist der "Alias", damit beide Namen funktionieren:
+get_yahoo_news = get_yahoo_news_safe 
+
+def get_crypto_panic_news(api_key="DEIN_API_KEY"):
+    url = f"https://cryptopanic.com/api/v1/posts/?auth_token={api_key}&public=true"
+    try:
+        r = requests.get(url, timeout=5)
+        return r.json().get('results', [])
+    except:
+        return []
 
 
 # Wechselkurse 1 Stunde lang speichern (spart pro Klick ca. 5-8 Sekunden)
@@ -227,6 +281,7 @@ with t_port:
                     st.success(f"{fname} hinzugefügt!"); st.rerun()
                 else: st.error("Ticker nicht gefunden!")
 
+
     if os.path.exists(filename):
         df = pd.read_csv(filename).dropna(subset=['ticker'])
         if not df.empty:
@@ -247,26 +302,62 @@ with t_port:
             total_inv = rdf['Invest'].sum()
             total_p = (total_gv / total_inv * 100) if total_inv > 0 else 0
             
-            st.metric(f"🏦 GESAMTDEPOT ({base_currency})", f"{total_v:,.2f} {base_currency}", f"{total_p:+.2f}% ({total_gv:,.2f})")
+            # --- 1. HAUPT-METRIK ---
+            st.metric(f"🏦 GESAMTDEPOT ({base_currency})", 
+                      f"{total_v:,.2f}", 
+                      f"{total_p:+.2f}% ({total_gv:,.2f})")
+            
             st.divider()
 
-            # --- VISUALISIERUNG ---
-            col_chart, col_stats = st.columns([2, 1])
+            # --- 2. VISUALISIERUNG & STATS & NEWS ---
+            # Wir teilen den Platz in 3 Spalten auf
+            col_chart, col_stats, col_news = st.columns([1.5, 1, 1])
+            
             with col_chart:
                 import plotly.express as px
-                chart_data = rdf.groupby('typ')['Wert'].sum().reset_index()
-                fig = px.pie(chart_data, values='Wert', names='typ', hole=0.5,
+                c_data = rdf.groupby('typ')['Wert'].sum().reset_index()
+                fig = px.pie(c_data, values='Wert', names='typ', hole=0.5, 
                              color_discrete_map={'Aktie':'#3498db', 'Krypto':'#f1c40f', 'ETF':'#9b59b6'})
-                fig.update_layout(margin=dict(t=0, b=0, l=0, r=0), height=250)
-                st.plotly_chart(fig, use_container_width=True)
-            
+                fig.update_layout(margin=dict(t=0, b=0, l=0, r=0), height=220, showlegend=False)
+                st.plotly_chart(fig, use_container_width=True, key="unique_portfolio_donut")
+
             with col_stats:
-                st.write("🏆 **Bester Performer**")
+                st.write("🏆 **Top Asset**")
                 top_r = rdf.loc[rdf['GV'].idxmax()]
-                st.success(f"{top_r['name']}: {top_r['GV']:+.2f}")
-                st.write("📉 **Größter Verlust**")
+                st.success(f"**{top_r['name']}**\n\n{top_r['GV']:+.2f} {base_currency}")
+                
+                st.write("📉 **Flop Asset**")
                 flop_r = rdf.loc[rdf['GV'].idxmin()]
-                st.error(f"{flop_r['name']}: {flop_r['GV']:+.2f}")
+                st.error(f"**{flop_r['name']}**\n\n{flop_r['GV']:+.2f} {base_currency}")
+
+            with col_news:
+                st.write("📰 **Letzte News**")
+                # News für das aktuell wertvollste Asset
+                main_t = rdf.loc[rdf['Wert'].idxmax()]['ticker']
+                y_news = get_yahoo_news(main_t)
+                
+                if y_news:
+                    count = 0
+                    for n in y_news:
+                        # Nur anzeigen, wenn Titel UND Link vorhanden sind
+                        if 'title' in n and 'link' in n:
+                            st.markdown(f"• <small>[{n['title'][:45]}...]({n['link']})</small>", unsafe_allow_html=True)
+                            count += 1
+                        if count >= 2: # Stop nach 2 gültigen News
+                            break
+                else:
+                    st.caption("Keine News gefunden.")
+
+
+            # DIESE ZEILE WAR DAS PROBLEM:
+            st.divider() 
+
+            # --- NEWS BEREICH (NEU) ---
+            n_col1, n_col2 = st.columns(2)
+            with n_col1:
+                with st.expander("🚀 Krypto News (Panic)", expanded=True):
+                    # Hier kommt dein News-Code rein
+                    pass
 
             st.divider()
 
@@ -286,16 +377,23 @@ with t_port:
                         h5.caption("AKTION")
 
                         for _, r in sub.iterrows():
-                            c1, c2, c3, c4, c5 = st.columns([2, 1.5, 1.5, 1, 0.8])
+                            # Wir erstellen 5 Spalten für die Anzeige + Aktionen
+                            c1, c2, c3, c4, c5 = st.columns([2, 1.5, 1.5, 1, 1.2])
+                            
                             c1.write(f"**{r['name']}**")
                             c2.write(f"{r['Wert']:,.2f}")
+                            
+                            # Gewinn/Verlust Farbe
                             color = "green" if r['GV'] >= 0 else "red"
                             c3.markdown(f"<span style='color:{color}; font-weight:bold;'>{r['GV']:+.2f}</span>", unsafe_allow_html=True)
+                            
                             c4.write(f"{r['menge']}")
                             
-                            # Bearbeiten & Löschen nebeneinander
+                            # --- AKTIONSSPALTE (REPARIERT & ERWEITERT) ---
                             with c5:
-                                col_edit, col_del = st.columns(2)
+                                col_edit, col_sell = st.columns(2)
+                                
+                                # 1. Bearbeiten (Popover)
                                 with col_edit:
                                     with st.popover("📝"):
                                         with st.form(f"ed_{r['orig_idx']}"):
@@ -303,12 +401,30 @@ with t_port:
                                             en = st.text_input("Name", r['name'])
                                             em = st.number_input("Menge", float(r['menge']))
                                             ee = st.number_input("EK", float(r['kaufpreis']))
-                                            if st.form_submit_button("OK"):
-                                                df.at[r['orig_idx'], 'ticker'], df.at[r['orig_idx'], 'name'], df.at[r['orig_idx'], 'menge'], df.at[r['orig_idx'], 'kaufpreis'] = et.upper(), en, em, ee
-                                                df.to_csv(filename, index=False); st.rerun()
-                                with col_del:
-                                    if st.button("🗑️", key=f"del_{r['orig_idx']}"):
-                                        df.drop(r['orig_idx']).to_csv(filename, index=False); st.rerun()
+                                            if st.form_submit_button("Speichern"):
+                                                df_edit = pd.read_csv(filename)
+                                                df_edit.at[r['orig_idx'], 'ticker'] = et.upper()
+                                                df_edit.at[r['orig_idx'], 'name'] = en
+                                                df_edit.at[r['orig_idx'], 'menge'] = em
+                                                df_edit.at[r['orig_idx'], 'kaufpreis'] = ee
+                                                df_edit.to_csv(filename, index=False)
+                                                st.rerun()
+
+                                # 2. TEILVERKAUF / LÖSCHEN
+                                with col_sell:
+                                    with st.popover("💰"):
+                                        st.write(f"**Verkauf: {r['name']}**")
+                                        sell_qty = st.number_input("Menge verkaufen", min_value=0.0001, max_value=float(r['menge']), value=float(r['menge']), step=0.01, key=f"sell_val_{r['orig_idx']}")
+                                        
+                                        if st.button("Verkauf bestätigen", key=f"conf_sell_{r['orig_idx']}", use_container_width=True):
+                                            df_sell = pd.read_csv(filename)
+                                            if sell_qty >= r['menge']:
+                                                df_sell = df_sell.drop(r['orig_idx'])
+                                            else:
+                                                df_sell.at[r['orig_idx'], 'menge'] = r['menge'] - sell_qty
+                                            
+                                            df_sell.to_csv(filename, index=False)
+                                            st.rerun()
 
     st.divider()
     cd, cu = st.columns(2)
@@ -342,27 +458,50 @@ with t_sig:
                     s_watch.remove(t); pd.DataFrame({"ticker": s_watch}).to_csv(signal_watchlist_file, index=False); st.rerun()
         except: pass
 
-# --- TAB 3: TERMINAL ---
+# --- TAB 3: TERMINAL (REPARIERTE VERSION) ---
 with t_multi:
-    # Lade gespeicherte Ticker oder Standardwerte
-    saved_t = pd.read_csv(chart_config_file)['ticker'].tolist() if os.path.exists(chart_config_file) else ["BTCUSD"] * 16
+    # 1. FUNKTION ZUM SPEICHERN (definiert, bevor sie benutzt wird)
+    def save_all_charts():
+        ticker_liste = []
+        for j in range(16):
+            key = f"tm_{j}"
+            # Wir holen uns die Werte direkt aus dem Streamlit-Speicher (Session State)
+            val = st.session_state.get(key, "BTCUSD")
+            ticker_liste.append(val)
+        
+        # Speichern in die Datei
+        pd.DataFrame({"ticker": ticker_liste}).to_csv(chart_config_file, index=False)
+
+    # 2. DATEN LADEN
+    if os.path.exists(chart_config_file):
+        try:
+            saved_t = pd.read_csv(chart_config_file)['ticker'].tolist()
+        except:
+            saved_t = ["BTCUSD"] * 16
+    else:
+        saved_t = ["BTCUSD"] * 16
+
+    # Liste auf 16 auffüllen
+    while len(saved_t) < 16:
+        saved_t.append("BTCUSD")
     
-    # Timeframe-Mapping für TradingView
+    # Timeframe-Mapping
     tv_tf = {"5m":"5","30m":"30","1h":"60","4h":"240","8h":"480","12h":"720","1d":"D"}.get(tf, "D")
     
     t_cols = st.columns(cols_layout)
-    curr_t = []
     
+    # 3. DIE CHARTS ANZEIGEN
     for i in range(num_charts):
         with t_cols[i % cols_layout]:
-            # Falls die Liste kürzer als num_charts ist, nimm BTCUSD
-            v = saved_t[i] if i < len(saved_t) else "BTCUSD"
+            # WICHTIG: 'on_change' sorgt dafür, dass NameError nicht mehr passiert,
+            # da sofort gespeichert wird, wenn du etwas änderst.
+            ti = st.text_input(
+                f"Fenster {i+1}", 
+                value=saved_t[i], 
+                key=f"tm_{i}", 
+                on_change=save_all_charts
+            )
             
-            # Hier definieren wir 'ti' - achte darauf, dass der Name gleich bleibt!
-            ti = st.text_input(f"Fenster {i+1}", v, key=f"tm_{i}")
-            curr_t.append(ti)
-            
-            # Das HTML-Widget mit den korrekten f-String Klammern
             components.html(f"""
                 <div id="tv_{i}" style="height:450px;"></div>
                 <script src="https://s3.tradingview.com/tv.js"></script>
@@ -375,7 +514,6 @@ with t_multi:
                   "theme": "dark",
                   "style": "1",
                   "locale": "de",
-                  "toolbar_bg": "#f1f3f6",
                   "enable_publishing": false,
                   "hide_side_toolbar": false,
                   "allow_symbol_change": true,
@@ -384,9 +522,7 @@ with t_multi:
                 </script>
             """, height=460)
 
-    if st.button("💾 Charts Speichern"):
-        pd.DataFrame({"ticker": curr_t}).to_csv(chart_config_file, index=False)
-        st.success("Konfiguration gespeichert!")
+    st.success("✅ Automatisches Speichern aktiv: Tippe einen Ticker und drücke ENTER.")
 
 # --- TAB 4: SEKTOREN ---
 with t_sec:
@@ -415,4 +551,6 @@ with t_sec:
                 """, unsafe_allow_html=True)
         
         st.divider()
-        st.caption("Daten basieren auf den US-Sektor-ETFs (XLK, XLE, SOXX etc.) als globale Benchmarks.")        
+        st.caption("Daten basieren auf den US-Sektor-ETFs (XLK, XLE, SOXX etc.) als globale Benchmarks.")  
+
+        
