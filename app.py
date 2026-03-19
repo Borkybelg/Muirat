@@ -361,90 +361,9 @@ with t_port:
                             color = "green" if r['GV'] >= 0 else "red"
                             c3.markdown(f"<span style='color:{color}; font-weight:bold;'>{r['GV']:+.2f}</span>", unsafe_allow_html=True)
                             c4.write(f"{r['menge']}")
-            # --- 2. VISUALISIERUNG & STATS & NEWS ---
-            # Wir teilen den Platz in 3 Spalten auf
-            col_chart, col_stats, col_news = st.columns([1.5, 1, 1])
-            
-            with col_chart:
-                import plotly.express as px
-                c_data = rdf.groupby('typ')['Wert'].sum().reset_index()
-                fig = px.pie(c_data, values='Wert', names='typ', hole=0.5, 
-                             color_discrete_map={'Aktie':'#3498db', 'Krypto':'#f1c40f', 'ETF':'#9b59b6'})
-                fig.update_layout(margin=dict(t=0, b=0, l=0, r=0), height=220, showlegend=False)
-                st.plotly_chart(fig, use_container_width=True, key="unique_portfolio_donut")
-
-            with col_stats:
-                st.write("🏆 **Top Asset**")
-                top_r = rdf.loc[rdf['GV'].idxmax()]
-                st.success(f"**{top_r['name']}**\n\n{top_r['GV']:+.2f} {base_currency}")
-                
-                st.write("📉 **Flop Asset**")
-                flop_r = rdf.loc[rdf['GV'].idxmin()]
-                st.error(f"**{flop_r['name']}**\n\n{flop_r['GV']:+.2f} {base_currency}")
-
-            with col_news:
-                st.write("📰 **Letzte News**")
-                # News für das aktuell wertvollste Asset
-                main_t = rdf.loc[rdf['Wert'].idxmax()]['ticker']
-                y_news = get_yahoo_news(main_t)
-                
-                if y_news:
-                    count = 0
-                    for n in y_news:
-                        # Nur anzeigen, wenn Titel UND Link vorhanden sind
-                        if 'title' in n and 'link' in n:
-                            st.markdown(f"• <small>[{n['title'][:45]}...]({n['link']})</small>", unsafe_allow_html=True)
-                            count += 1
-                        if count >= 2: # Stop nach 2 gültigen News
-                            break
-                else:
-                    st.caption("Keine News gefunden.")
-
-
-            # DIESE ZEILE WAR DAS PROBLEM:
-            st.divider() 
-
-            # --- NEWS BEREICH (NEU) ---
-            n_col1, n_col2 = st.columns(2)
-            with n_col1:
-                with st.expander("🚀 Krypto News (Panic)", expanded=True):
-                    # Hier kommt dein News-Code rein
-                    pass
-
-            st.divider()
-
-            # --- GRUPPIERTE AUFTEILUNG (EXPANDER) ---
-            for k in ["Aktie", "Krypto", "ETF"]:
-                sub = rdf[rdf['typ'] == k]
-                if not sub.empty:
-                    s_wert = sub['Wert'].sum()
-                    s_gv = sub['GV'].sum()
-                    with st.expander(f"📦 {k}s (Summe: {s_wert:,.2f} | G/V: {s_gv:+.2f})", expanded=True):
-                        # Spaltenüberschriften
-                        h1, h2, h3, h4, h5 = st.columns([2, 1.5, 1.5, 1, 0.8])
-                        h1.caption("NAME")
-                        h2.caption(f"WERT ({base_currency})")
-                        h3.caption("G/V")
-                        h4.caption("MENGE")
-                        h5.caption("AKTION")
-
-                        for _, r in sub.iterrows():
-                            # Wir erstellen 5 Spalten für die Anzeige + Aktionen
-                            c1, c2, c3, c4, c5 = st.columns([2, 1.5, 1.5, 1, 1.2])
                             
-                            c1.write(f"**{r['name']}**")
-                            c2.write(f"{r['Wert']:,.2f}")
-                            
-                            # Gewinn/Verlust Farbe
-                            color = "green" if r['GV'] >= 0 else "red"
-                            c3.markdown(f"<span style='color:{color}; font-weight:bold;'>{r['GV']:+.2f}</span>", unsafe_allow_html=True)
-                            
-                            c4.write(f"{r['menge']}")
-                            
-                            # --- AKTIONSSPALTE ---
                             with c5:
                                 col_edit, col_sell, col_del = st.columns(3)
-                                
                                 # 1. Bearbeiten
                                 with col_edit:
                                     with st.popover("📝"):
@@ -462,93 +381,35 @@ with t_port:
                                                 df_edit.to_csv(filename, index=False)
                                                 st.rerun()
 
-                                # 2. Verkauf
+                                # 2. Teilverkauf
                                 with col_sell:
                                     with st.popover("💰"):
-                                        st.subheader("Verkauf")
-                                        akt_v = float(r['Wert'] / r['menge']) if r['menge'] > 0 else 0.0
-                                        v_preis = st.number_input(f"Preis", value=akt_v, key=f"vpx_{r['orig_idx']}")
-                                        v_menge = st.number_input("Menge", min_value=0.0001, max_value=float(r['menge']), value=float(r['menge']), key=f"vqt_{r['orig_idx']}")
-                                        
-                                        if st.button("Bestätigen", key=f"vbtn_{r['orig_idx']}", use_container_width=True):
+                                        v_m = st.number_input("Menge", 0.0, float(r['menge']), float(r['menge']), key=f"vs_{r['orig_idx']}")
+                                        if st.button("Bestätigen", key=f"vb_{r['orig_idx']}"):
                                             df_sell = pd.read_csv(filename)
-                                            if v_menge >= r['menge']:
+                                            if v_m >= r['menge']:
                                                 df_sell = df_sell.drop(r['orig_idx'])
                                             else:
-                                                df_sell.at[r['orig_idx'], 'menge'] = r['menge'] - v_menge
+                                                df_sell.at[r['orig_idx'], 'menge'] = r['menge'] - v_m
                                             df_sell.to_csv(filename, index=False)
                                             st.rerun()
 
                                 # 3. Löschen
                                 with col_del:
-                                    with st.popover("🗑️"):
-                                        st.error("Löschen?")
-                                        if st.button("Ja", key=f"del_{r['orig_idx']}", use_container_width=True):
-                                            df_del = pd.read_csv(filename)
-                                            df_del = df_del.drop(r['orig_idx'])
-                                            df_del.to_csv(filename, index=False)
-                                            st.rerun()
-            )
-            
-            if st.button("Verkauf bestätigen", key=f"vbtn_{r['orig_idx']}", use_container_width=True):
-                df_sell = pd.read_csv(filename)
-                if v_menge >= r['menge']:
-                    df_sell = df_sell.drop(r['orig_idx'])
-                else:
-                    df_sell.at[r['orig_idx'], 'menge'] = r['menge'] - v_menge
-                
-                df_sell.to_csv(filename, index=False)
-                st.success("Transaktion gespeichert!")
-                st.rerun()
-
-    # 3. DIREKT LÖSCHEN (Neu)
-    with col_del:
-        with st.popover("🗑️", help="Asset unwiderruflich löschen"):
-            st.warning(f"'{r['name']}' wirklich löschen?")
-            if st.button("Ja, weg damit!", key=f"del_{r['orig_idx']}", color="primary", use_container_width=True):
-                df_del = pd.read_csv(filename)
-                df_del = df_del.drop(r['orig_idx'])
-                df_del.to_csv(filename, index=False)
-                st.rerun()
-                                        
-                                        # EINGABE: Menge
-                                        v_menge = st.number_input(
-                                            "Menge verkaufen", 
-                                            min_value=0.0001, 
-                                            max_value=float(r['menge']), 
-                                            value=float(r['menge']),
-                                            step=0.01,
-                                            key=f"vqt_{r['orig_idx']}"
-                                        )
-                                        
-                                        # BERECHNUNG: Ertrag & Gewinn
-                                        erhalt = v_preis * v_menge
-                                        trade_gv = (v_preis - r['kaufpreis']) * v_menge
-                                        
-                                        st.divider()
-                                        st.write(f"💵 Cash-Erhalt: **{erhalt:,.2f} {base_currency}**")
-                                        
-                                        color_t = "green" if trade_gv >= 0 else "red"
-                                        st.markdown(f"📈 Trade-G/V: <span style='color:{color_t}; font-weight:bold;'>{trade_gv:+.2f}</span>", unsafe_allow_html=True)
-                                        
-                                        if st.button("Verkauf bestätigen", key=f"vbtn_{r['orig_idx']}", use_container_width=True):
-                                            df_sell = pd.read_csv(filename)
-                                            if v_menge >= r['menge']:
-                                                # Wenn alles verkauft wird -> Zeile löschen
-                                                df_sell = df_sell.drop(r['orig_idx'])
-                                            else:
-                                                # Wenn Teilverkauf -> Menge reduzieren
-                                                df_sell.at[r['orig_idx'], 'menge'] = r['menge'] - v_menge
-                                            
-                                            df_sell.to_csv(filename, index=False)
-                                            st.success("Transaktion gespeichert!")
-                                            st.rerun()
+                                    if st.button("🗑️", key=f"dl_{r['orig_idx']}"):
+                                        df_del = pd.read_csv(filename)
+                                        df_del = df_del.drop(r['orig_idx'])
+                                        df_del.to_csv(filename, index=False)
+                                        st.rerun()
 
     st.divider()
     cd, cu = st.columns(2)
-    if os.path.exists(filename): cd.download_button("📥 Backup CSV", pd.read_csv(filename).to_csv(index=False), "portfolio.csv")
+    if os.path.exists(filename): 
+        cd.download_button("📥 Backup CSV", pd.read_csv(filename).to_csv(index=False), "portfolio.csv")
     up = cu.file_uploader("📤 CSV Wiederherstellen", type="csv")
-    if up: pd.read_csv(up).to_csv(filename, index=False); st.rerun()
+    if up: 
+        pd.read_csv(up).to_csv(filename, index=False)
+        st.rerun()
 # --- TAB 2: SIGNAL MONITOR ---
 with t_sig:
     s_watch = pd.read_csv(signal_watchlist_file)['ticker'].tolist() if os.path.exists(signal_watchlist_file) else ["^GDAXI", "BTC-USD"]
