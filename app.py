@@ -246,22 +246,37 @@ if not st.session_state["password_correct"]:
         st.rerun()
     st.stop()
 
-st.subheader("📊 Global Market Watch")
+st.subheader("📊 Global Market Watch (24h)")
 m_tickers = {
     "DAX": "^GDAXI", "S&P 500": "^GSPC", "Nasdaq": "^NDX", "Dow Jones": "^DJI",
     "SDAX": "^SDAXI",  "MDAX": "^MDAXI", "TecDAX": "^TECDAX", "Russell 2k": "^RUT", 
-    "Nikkei 225": "^N225", "China 50": "XIN9.FGI", "BTC-USD": "BTC-USD", "ETH-USD": "ETH-USD", "ETH-EUR": "ETH-EUR", 
+    "Nikkei 225": "^N225", "China 50": "XIN9.FGI", "BTC-USD": "BTC-USD", "ETH-USD": "ETH-USD", 
     "Gold": "GC=F", "Silber": "SI=F", "Öl": "BZ=F", "VIX": "^VIX", "EUR/TRY": "EURTRY=X"
 }
 
 m_cols = st.columns(6)
 for i, (n, s) in enumerate(m_tickers.items()):
     try:
-        val = yf.Ticker(s).fast_info.last_price
-        m_cols[i % 6].metric(n, f"{val:,.2f}")
+        t_obj = yf.Ticker(s)
+        fast = t_obj.fast_info
+        
+        current_price = fast.last_price
+        # Berechnung der täglichen Änderung basierend auf dem gestrigen Schlusskurs
+        prev_close = fast.previous_close
+        
+        if prev_close and prev_close > 0:
+            change_pct = ((current_price - prev_close) / prev_close) * 100
+        else:
+            change_pct = 0.0
+
+        # Anzeige mit Delta-Farbe (Grün für +, Rot für -)
+        m_cols[i % 6].metric(
+            label=n, 
+            value=f"{current_price:,.2f}", 
+            delta=f"{change_pct:+.2f}%"
+        )
     except: 
         m_cols[i % 6].metric(n, "Err")
-
 st.divider()
 
 t_port, t_sig, t_multi, t_sec = st.tabs(["💰 PORTFOLIO", "🚦 SIGNAL MONITOR", "🖼️ TERMINAL", "📈 SEKTOREN"])
