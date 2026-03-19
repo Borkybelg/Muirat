@@ -255,12 +255,12 @@ m_tickers = {
         "Gold": "GC=F", "Silber": "SI=F", "Öl": "BZ=F", "VIX": "^VIX", "EUR/TRY": "EURTRY=X"
         
     }
-m_cols = st.columns(len(m_tickers))
-for i, (n, s) in enumerate(m_tickers.items()):
-    try:
-        val = yf.Ticker(s).fast_info.last_price
-        m_cols[i].metric(n, f"{val:,.2f}")
-    except: m_cols[i].metric(n, "N/A")
+m_cols = st.columns(6)
+    for i, (n, s) in enumerate(m_tickers.items()):
+        try:
+            val = yf.Ticker(s).fast_info.last_price
+            m_cols[i % 6].metric(n, f"{val:,.2f}")
+        except: m_cols[i % 6].metric(n, "Err")
 st.divider()
 
 t_port, t_sig, t_multi, t_sec = st.tabs(["💰 PORTFOLIO", "🚦 SIGNAL MONITOR", "🖼️ TERMINAL", "📈 SEKTOREN"])
