@@ -246,21 +246,21 @@ if not st.session_state["password_correct"]:
         st.rerun()
     st.stop()
 
-# --- MARKT MONITOR (ALLE TICKER) ---
-    st.subheader("📊 Global Market Watch")
-    m_tickers = {
-        "DAX": "^GDAXI", "S&P 500": "^GSPC", "Nasdaq": "^NDX", "Dow Jones": "^DJI",
-        "SDAX": "^SDAXI",  "MDAX": "^MDAXI", "TecDAX": "^TECDAX", "Russell 2k": "^RUT", 
-         "Nikkei 225": "^N225", "China 50": "XIN9.FGI", "BTC-USD": "BTC-USD", "ETH-USD": "ETH-USD", "ETH-EUR": "ETH-EUR", 
-        "Gold": "GC=F", "Silber": "SI=F", "Öl": "BZ=F", "VIX": "^VIX", "EUR/TRY": "EURTRY=X"
-        
-    }
-    m_cols = st.columns(6)
-    for i, (n, s) in enumerate(m_tickers.items()):
-        try:
-            val = yf.Ticker(s).fast_info.last_price
-            m_cols[i % 6].metric(n, f"{val:,.2f}")
-        except: m_cols[i % 6].metric(n, "Err")
+st.subheader("📊 Global Market Watch")
+m_tickers = {
+    "DAX": "^GDAXI", "S&P 500": "^GSPC", "Nasdaq": "^NDX", "Dow Jones": "^DJI",
+    "SDAX": "^SDAXI",  "MDAX": "^MDAXI", "TecDAX": "^TECDAX", "Russell 2k": "^RUT", 
+    "Nikkei 225": "^N225", "China 50": "XIN9.FGI", "BTC-USD": "BTC-USD", "ETH-USD": "ETH-USD", "ETH-EUR": "ETH-EUR", 
+    "Gold": "GC=F", "Silber": "SI=F", "Öl": "BZ=F", "VIX": "^VIX", "EUR/TRY": "EURTRY=X"
+}
+
+m_cols = st.columns(6)
+for i, (n, s) in enumerate(m_tickers.items()):
+    try:
+        val = yf.Ticker(s).fast_info.last_price
+        m_cols[i % 6].metric(n, f"{val:,.2f}")
+    except: 
+        m_cols[i % 6].metric(n, "Err")
 
 st.divider()
 
