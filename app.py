@@ -397,42 +397,54 @@ with t_port:
                             c4.write(f"{r['menge']}")
                             
                             # --- AKTIONSSPALTE (ERWEITERT UM LÖSCHEN) ---
-with c5:
-    col_edit, col_sell, col_del = st.columns(3) # Jetzt 3 Spalten
-    
-    # 1. Bearbeiten (Popover)
-    with col_edit:
-        with st.popover("📝", help="Daten anpassen"):
-            with st.form(f"ed_{r['orig_idx']}"):
-                et = st.text_input("Ticker", r['ticker'])
-                en = st.text_input("Name", r['name'])
-                em = st.number_input("Menge", float(r['menge']))
-                ee = st.number_input("EK", float(r['kaufpreis']))
-                if st.form_submit_button("Speichern"):
-                    df_edit = pd.read_csv(filename)
-                    df_edit.at[r['orig_idx'], 'ticker'] = et.upper()
-                    df_edit.at[r['orig_idx'], 'name'] = en
-                    df_edit.at[r['orig_idx'], 'menge'] = em
-                    df_edit.at[r['orig_idx'], 'kaufpreis'] = ee
-                    df_edit.to_csv(filename, index=False)
-                    st.rerun()
+# --- AKTIONSSPALTE ---
+                            with c5:
+                                col_edit, col_sell, col_del = st.columns(3)
+                                
+                                # 1. Bearbeiten
+                                with col_edit:
+                                    with st.popover("📝"):
+                                        with st.form(f"ed_{r['orig_idx']}"):
+                                            et = st.text_input("Ticker", r['ticker'])
+                                            en = st.text_input("Name", r['name'])
+                                            em = st.number_input("Menge", float(r['menge']))
+                                            ee = st.number_input("EK", float(r['kaufpreis']))
+                                            if st.form_submit_button("Speichern"):
+                                                df_edit = pd.read_csv(filename)
+                                                df_edit.at[r['orig_idx'], 'ticker'] = et.upper()
+                                                df_edit.at[r['orig_idx'], 'name'] = en
+                                                df_edit.at[r['orig_idx'], 'menge'] = em
+                                                df_edit.at[r['orig_idx'], 'kaufpreis'] = ee
+                                                df_edit.to_csv(filename, index=False)
+                                                st.rerun()
 
-    # 2. Verkauf (Popover)
-    with col_sell:
-        with st.popover("💰", help="Verkauf buchen"):
-            st.subheader(f"Verkauf: {r['name']}")
-            
-            # Preisberechnung
-            akt_preis_vorschlag = float(r['Wert'] / r['menge']) if r['menge'] > 0 else 0.0
-            
-            # Achte hier auf die Einrückung der Parameter:
-            v_preis = st.number_input(
-                f"Verkaufspreis ({base_currency})", 
-                value=akt_preis_vorschlag, 
-                format="%.2f", 
-                key=f"vpx_{r['orig_idx']}"
-            )
-            
+                                # 2. Verkauf
+                                with col_sell:
+                                    with st.popover("💰"):
+                                        st.subheader(f"Verkauf: {r['name']}")
+                                        akt_v = float(r['Wert'] / r['menge']) if r['menge'] > 0 else 0.0
+                                        
+                                        v_preis = st.number_input(f"Preis ({base_currency})", value=akt_v, format="%.2f", key=f"vpx_{r['orig_idx']}")
+                                        v_menge = st.number_input("Menge", min_value=0.0001, max_value=float(r['menge']), value=float(r['menge']), key=f"vqt_{r['orig_idx']}")
+                                        
+                                        if st.button("Verkauf bestätigen", key=f"vbtn_{r['orig_idx']}", use_container_width=True):
+                                            df_sell = pd.read_csv(filename)
+                                            if v_menge >= r['menge']:
+                                                df_sell = df_sell.drop(r['orig_idx'])
+                                            else:
+                                                df_sell.at[r['orig_idx'], 'menge'] = r['menge'] - v_menge
+                                            df_sell.to_csv(filename, index=False)
+                                            st.rerun()
+
+                                # 3. Löschen
+                                with col_del:
+                                    with st.popover("🗑️"):
+                                        st.warning("Asset löschen?")
+                                        if st.button("Löschen", key=f"del_{r['orig_idx']}", use_container_width=True):
+                                            df_del = pd.read_csv(filename)
+                                            df_del = df_del.drop(r['orig_idx'])
+                                            df_del.to_csv(filename, index=False)
+                                            st.rerun()
             v_menge = st.number_input(
                 "Menge verkaufen", 
                 min_value=0.0001, 
