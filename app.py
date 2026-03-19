@@ -248,7 +248,13 @@ if not st.session_state["password_correct"]:
 
 # --- 4. GLOBAL MARKET WATCH ---
 st.subheader("📊 Global Market Watch")
-m_tickers = {"DAX": "^GDAXI", "Nasdaq 100": "^IXIC", "Dow Jones": "^DJI", "Brent": "BZ=F", "Gold": "GC=F", "BTC-USD": "BTC-USD"}
+m_tickers = {
+        "DAX": "^GDAXI", "S&P 500": "^GSPC", "Nasdaq": "^NDX", "Dow Jones": "^DJI",
+        "SDAX": "^SDAXI",  "MDAX": "^MDAXI", "TecDAX": "^TECDAX", "Russell 2k": "^RUT", 
+         "Nikkei 225": "^N225", "China 50": "XIN9.FGI", "BTC-USD": "BTC-USD", "ETH-USD": "ETH-USD", "ETH-EUR": "ETH-EUR", 
+        "Gold": "GC=F", "Silber": "SI=F", "Öl": "BZ=F", "VIX": "^VIX", "EUR/TRY": "EURTRY=X"
+        
+    }
 m_cols = st.columns(len(m_tickers))
 for i, (n, s) in enumerate(m_tickers.items()):
     try:
