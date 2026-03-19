@@ -397,7 +397,7 @@ with t_port:
                             c4.write(f"{r['menge']}")
                             
                             # --- AKTIONSSPALTE (ERWEITERT UM LÖSCHEN) ---
-# --- AKTIONSSPALTE ---
+
                             with c5:
                                 col_edit, col_sell, col_del = st.columns(3)
                                 
@@ -445,12 +445,12 @@ with t_port:
                                             df_del = df_del.drop(r['orig_idx'])
                                             df_del.to_csv(filename, index=False)
                                             st.rerun()
-            v_menge = st.number_input(
-                "Menge verkaufen", 
-                min_value=0.0001, 
-                max_value=float(r['menge']), 
-                value=float(r['menge']), 
-                key=f"vqt_{r['orig_idx']}"
+                                    v_menge = st.number_input(
+                                    "Menge verkaufen", 
+                                    min_value=0.0001, 
+                                    max_value=float(r['menge']), 
+                                    value=float(r['menge']), 
+                                    key=f"vqt_{r['orig_idx']}"
             )
             
             if st.button("Verkauf bestätigen", key=f"vbtn_{r['orig_idx']}", use_container_width=True):
