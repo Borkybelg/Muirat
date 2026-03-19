@@ -396,14 +396,13 @@ with t_port:
                             
                             c4.write(f"{r['menge']}")
                             
-                            # --- AKTIONSSPALTE (ERWEITERT UM LÖSCHEN) ---
-
+                            # --- AKTIONSSPALTE (REPARIERT) ---
                             with c5:
                                 col_edit, col_sell, col_del = st.columns(3)
                                 
-                                # 1. Bearbeiten
+                                # 1. BEARBEITEN
                                 with col_edit:
-                                    with st.popover("📝"):
+                                    with st.popover("📝", help="Daten anpassen"):
                                         with st.form(f"ed_{r['orig_idx']}"):
                                             et = st.text_input("Ticker", r['ticker'])
                                             en = st.text_input("Name", r['name'])
@@ -418,16 +417,19 @@ with t_port:
                                                 df_edit.to_csv(filename, index=False)
                                                 st.rerun()
 
-                                # 2. Verkauf
+                                # 2. VERKAUF (Mit G/V Berechnung)
                                 with col_sell:
-                                    with st.popover("💰"):
-                                        st.subheader(f"Verkauf: {r['name']}")
+                                    with st.popover("💰", help="Verkauf buchen"):
+                                        st.subheader("Verkauf")
                                         akt_v = float(r['Wert'] / r['menge']) if r['menge'] > 0 else 0.0
-                                        
                                         v_preis = st.number_input(f"Preis ({base_currency})", value=akt_v, format="%.2f", key=f"vpx_{r['orig_idx']}")
                                         v_menge = st.number_input("Menge", min_value=0.0001, max_value=float(r['menge']), value=float(r['menge']), key=f"vqt_{r['orig_idx']}")
                                         
-                                        if st.button("Verkauf bestätigen", key=f"vbtn_{r['orig_idx']}", use_container_width=True):
+                                        # G/V Vorschau im Popover
+                                        trade_gv = (v_preis - r['kaufpreis']) * v_menge
+                                        st.caption(f"G/V: {trade_gv:+.2f} {base_currency}")
+
+                                        if st.button("Bestätigen", key=f"vbtn_{r['orig_idx']}", use_container_width=True):
                                             df_sell = pd.read_csv(filename)
                                             if v_menge >= r['menge']:
                                                 df_sell = df_sell.drop(r['orig_idx'])
@@ -436,21 +438,15 @@ with t_port:
                                             df_sell.to_csv(filename, index=False)
                                             st.rerun()
 
-                                # 3. Löschen
+                                # 3. LÖSCHEN (Direkt)
                                 with col_del:
-                                    with st.popover("🗑️"):
-                                        st.warning("Asset löschen?")
-                                        if st.button("Löschen", key=f"del_{r['orig_idx']}", use_container_width=True):
+                                    with st.popover("🗑️", help="Asset entfernen"):
+                                        st.error("Asset löschen?")
+                                        if st.button("Ja, weg!", key=f"del_{r['orig_idx']}", use_container_width=True):
                                             df_del = pd.read_csv(filename)
                                             df_del = df_del.drop(r['orig_idx'])
                                             df_del.to_csv(filename, index=False)
                                             st.rerun()
-                                    v_menge = st.number_input(
-                                    "Menge verkaufen", 
-                                    min_value=0.0001, 
-                                    max_value=float(r['menge']), 
-                                    value=float(r['menge']), 
-                                    key=f"vqt_{r['orig_idx']}"
             )
             
             if st.button("Verkauf bestätigen", key=f"vbtn_{r['orig_idx']}", use_container_width=True):
