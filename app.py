@@ -421,9 +421,25 @@ with c5:
     with col_sell:
         with st.popover("💰", help="Verkauf buchen"):
             st.subheader(f"Verkauf: {r['name']}")
+            
+            # Preisberechnung
             akt_preis_vorschlag = float(r['Wert'] / r['menge']) if r['menge'] > 0 else 0.0
-            v_preis = st.number_input(f"Verkaufspreis ({base_currency})", value=akt_preis_vorschlag, format="%.2f", key=f"vpx_{r['orig_idx']}")
-            v_menge = st.number_input("Menge verkaufen", min_value=0.0001, max_value=float(r['menge']), value=float(r['menge']), key=f"vqt_{r['orig_idx']}")
+            
+            # Achte hier auf die Einrückung der Parameter:
+            v_preis = st.number_input(
+                f"Verkaufspreis ({base_currency})", 
+                value=akt_preis_vorschlag, 
+                format="%.2f", 
+                key=f"vpx_{r['orig_idx']}"
+            )
+            
+            v_menge = st.number_input(
+                "Menge verkaufen", 
+                min_value=0.0001, 
+                max_value=float(r['menge']), 
+                value=float(r['menge']), 
+                key=f"vqt_{r['orig_idx']}"
+            )
             
             if st.button("Verkauf bestätigen", key=f"vbtn_{r['orig_idx']}", use_container_width=True):
                 df_sell = pd.read_csv(filename)
@@ -431,8 +447,10 @@ with c5:
                     df_sell = df_sell.drop(r['orig_idx'])
                 else:
                     df_sell.at[r['orig_idx'], 'menge'] = r['menge'] - v_menge
+                
                 df_sell.to_csv(filename, index=False)
-                st.success("Transaktion gespeichert!"); st.rerun()
+                st.success("Transaktion gespeichert!")
+                st.rerun()
 
     # 3. DIREKT LÖSCHEN (Neu)
     with col_del:
