@@ -396,13 +396,13 @@ with t_port:
                             
                             c4.write(f"{r['menge']}")
                             
-                            # --- AKTIONSSPALTE (REPARIERT) ---
+                            # --- AKTIONSSPALTE ---
                             with c5:
                                 col_edit, col_sell, col_del = st.columns(3)
                                 
-                                # 1. BEARBEITEN
+                                # 1. Bearbeiten
                                 with col_edit:
-                                    with st.popover("📝", help="Daten anpassen"):
+                                    with st.popover("📝"):
                                         with st.form(f"ed_{r['orig_idx']}"):
                                             et = st.text_input("Ticker", r['ticker'])
                                             en = st.text_input("Name", r['name'])
@@ -417,18 +417,14 @@ with t_port:
                                                 df_edit.to_csv(filename, index=False)
                                                 st.rerun()
 
-                                # 2. VERKAUF (Mit G/V Berechnung)
+                                # 2. Verkauf
                                 with col_sell:
-                                    with st.popover("💰", help="Verkauf buchen"):
+                                    with st.popover("💰"):
                                         st.subheader("Verkauf")
                                         akt_v = float(r['Wert'] / r['menge']) if r['menge'] > 0 else 0.0
-                                        v_preis = st.number_input(f"Preis ({base_currency})", value=akt_v, format="%.2f", key=f"vpx_{r['orig_idx']}")
+                                        v_preis = st.number_input(f"Preis", value=akt_v, key=f"vpx_{r['orig_idx']}")
                                         v_menge = st.number_input("Menge", min_value=0.0001, max_value=float(r['menge']), value=float(r['menge']), key=f"vqt_{r['orig_idx']}")
                                         
-                                        # G/V Vorschau im Popover
-                                        trade_gv = (v_preis - r['kaufpreis']) * v_menge
-                                        st.caption(f"G/V: {trade_gv:+.2f} {base_currency}")
-
                                         if st.button("Bestätigen", key=f"vbtn_{r['orig_idx']}", use_container_width=True):
                                             df_sell = pd.read_csv(filename)
                                             if v_menge >= r['menge']:
@@ -438,11 +434,11 @@ with t_port:
                                             df_sell.to_csv(filename, index=False)
                                             st.rerun()
 
-                                # 3. LÖSCHEN (Direkt)
+                                # 3. Löschen
                                 with col_del:
-                                    with st.popover("🗑️", help="Asset entfernen"):
-                                        st.error("Asset löschen?")
-                                        if st.button("Ja, weg!", key=f"del_{r['orig_idx']}", use_container_width=True):
+                                    with st.popover("🗑️"):
+                                        st.error("Löschen?")
+                                        if st.button("Ja", key=f"del_{r['orig_idx']}", use_container_width=True):
                                             df_del = pd.read_csv(filename)
                                             df_del = df_del.drop(r['orig_idx'])
                                             df_del.to_csv(filename, index=False)
