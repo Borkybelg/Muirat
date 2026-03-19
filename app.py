@@ -288,7 +288,6 @@ with t_port:
                     st.success(f"{fname} hinzugefügt!"); st.rerun()
                 else: st.error("Ticker nicht gefunden!")
 
-
     if os.path.exists(filename):
         df = pd.read_csv(filename).dropna(subset=['ticker'])
         if not df.empty:
@@ -309,13 +308,59 @@ with t_port:
             total_inv = rdf['Invest'].sum()
             total_p = (total_gv / total_inv * 100) if total_inv > 0 else 0
             
-            # --- 1. HAUPT-METRIK ---
-            st.metric(f"🏦 GESAMTDEPOT ({base_currency})", 
-                      f"{total_v:,.2f}", 
-                      f"{total_p:+.2f}% ({total_gv:,.2f})")
-            
+            st.metric(f"🏦 GESAMTDEPOT ({base_currency})", f"{total_v:,.2f}", f"{total_p:+.2f}% ({total_gv:,.2f})")
             st.divider()
 
+            # --- VISUALISIERUNG & STATS ---
+            col_chart, col_stats, col_news = st.columns([1.5, 1, 1])
+            with col_chart:
+                import plotly.express as px
+                c_data = rdf.groupby('typ')['Wert'].sum().reset_index()
+                fig = px.pie(c_data, values='Wert', names='typ', hole=0.5, color_discrete_map={'Aktie':'#3498db', 'Krypto':'#f1c40f', 'ETF':'#9b59b6'})
+                fig.update_layout(margin=dict(t=0, b=0, l=0, r=0), height=220, showlegend=False)
+                st.plotly_chart(fig, use_container_width=True, key="unique_portfolio_donut")
+
+            with col_stats:
+                st.write("🏆 **Top Asset**")
+                top_r = rdf.loc[rdf['GV'].idxmax()]
+                st.success(f"**{top_r['name']}**\n\n{top_r['GV']:+.2f} {base_currency}")
+                st.write("📉 **Flop Asset**")
+                flop_r = rdf.loc[rdf['GV'].idxmin()]
+                st.error(f"**{flop_r['name']}**\n\n{flop_r['GV']:+.2f} {base_currency}")
+
+            with col_news:
+                st.write("📰 **Letzte News**")
+                main_t = rdf.loc[rdf['Wert'].idxmax()]['ticker']
+                y_news = get_yahoo_news(main_t)
+                if y_news:
+                    for n in y_news[:2]:
+                        if 'title' in n and 'link' in n:
+                            st.markdown(f"• <small>[{n['title'][:45]}...]({n['link']})</small>", unsafe_allow_html=True)
+                else: st.caption("Keine News gefunden.")
+
+            st.divider()
+
+            # --- ASSET LISTEN ---
+            for k in ["Aktie", "Krypto", "ETF"]:
+                sub = rdf[rdf['typ'] == k]
+                if not sub.empty:
+                    s_wert = sub['Wert'].sum()
+                    s_gv = sub['GV'].sum()
+                    with st.expander(f"📦 {k}s (Summe: {s_wert:,.2f} | G/V: {s_gv:+.2f})", expanded=True):
+                        h1, h2, h3, h4, h5 = st.columns([2, 1.5, 1.5, 1, 1.2])
+                        h1.caption("NAME")
+                        h2.caption(f"WERT ({base_currency})")
+                        h3.caption("G/V")
+                        h4.caption("MENGE")
+                        h5.caption("AKTION")
+
+                        for _, r in sub.iterrows():
+                            c1, c2, c3, c4, c5 = st.columns([2, 1.5, 1.5, 1, 1.2])
+                            c1.write(f"**{r['name']}**")
+                            c2.write(f"{r['Wert']:,.2f}")
+                            color = "green" if r['GV'] >= 0 else "red"
+                            c3.markdown(f"<span style='color:{color}; font-weight:bold;'>{r['GV']:+.2f}</span>", unsafe_allow_html=True)
+                            c4.write(f"{r['menge']}")
             # --- 2. VISUALISIERUNG & STATS & NEWS ---
             # Wir teilen den Platz in 3 Spalten auf
             col_chart, col_stats, col_news = st.columns([1.5, 1, 1])
