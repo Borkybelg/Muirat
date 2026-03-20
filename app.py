@@ -208,12 +208,25 @@ def get_fx_rate(from_curr, to_curr):
 def get_live_data(ticker):
     try:
         t = yf.Ticker(ticker)
-        # Wir nutzen fast_info, da es viel schneller ist als t.info
-        fast = t.fast_info
+        # Wir holen die Daten der letzten 2 Tage im Stunden-Intervall
+        hist = t.history(period="2d", interval="1h")
+        if hist.empty: return None
+        
+        current_price = hist['Close'].iloc[-1]
+        prev_1h = hist['Close'].iloc[-2] if len(hist) > 1 else current_price
+        
+        # 24h Änderung (ungefähr 24 Datenpunkte bei 1h Intervall)
+        prev_24h = hist['Close'].iloc[0] 
+        
+        ch1h = ((current_price / prev_1h) - 1) * 100
+        ch24h = ((current_price / prev_24h) - 1) * 100
+        
         return {
-            "price": fast.last_price, 
-            "currency": fast.currency, 
-            "name": ticker # Name weglassen spart Zeit (keine extra API-Abfrage)
+            "price": current_price,
+            "currency": t.fast_info.currency,
+            "name": ticker,
+            "price_change_1h": ch1h,
+            "price_change_24h": ch24h
         }
     except:
         return None
@@ -342,45 +355,71 @@ with t_port:
 
             st.divider()
 
-            # --- ASSET LISTEN MIT 1H / 24H UPDATE ---
-            for k in ["Aktie", "Krypto", "ETF"]:
-                sub = rdf[rdf['typ'] == k]
-                if not sub.empty:
-                    s_wert = sub['Wert'].sum()
-                    s_gv = sub['GV'].sum()
-                    with st.expander(f"📦 {k}s (Summe: {s_wert:,.2f} | G/V: {s_gv:+.2f})", expanded=True):
-                        # Header mit 7 Spalten
-                        h1, h2, h3, h4, h5, h6, h7 = st.columns([2, 1.2, 1.2, 0.8, 0.8, 1, 1.2])
-                        h1.caption("NAME")
-                        h2.caption(f"WERT ({base_currency})")
-                        h3.caption("G/V")
-                        h4.caption("1H %")
-                        h5.caption("24H %")
-                        h6.caption("MENGE")
-                        h7.caption("AKTION")
+            # --- ASSET LISTEN ---
+for k in ["Aktie", "Krypto", "ETF"]:
+    sub = rdf[rdf['typ'] == k]
+    if not sub.empty:
+        s_wert = sub['Wert'].sum()
+        s_gv = sub['GV'].sum()
+        with st.expander(f"📦 {k}s (Summe: {s_wert:,.2f} | G/V: {s_gv:+.2f})", expanded=True):
+            # Header mit 7 Spalten
+            h1, h2, h3, h4, h5, h6, h7 = st.columns([2, 1.2, 1.2, 0.8, 0.8, 1, 1.5])
+            h1.caption("NAME")
+            h2.caption(f"WERT ({base_currency})")
+            h3.caption("G/V")
+            h4.caption("1H %")
+            h5.caption("24H %")
+            h6.caption("MENGE")
+            h7.caption("AKTION")
 
-                        for _, r in sub.iterrows():
-                            c1, c2, c3, c4, c5, c6, c7 = st.columns([2, 1.2, 1.2, 0.8, 0.8, 1, 1.2])
-                            
-                            c1.write(f"**{r['name']}**")
-                            c2.write(f"{r['Wert']:,.2f}")
-                            
-                            gv_col = "green" if r['GV'] >= 0 else "red"
-                            c3.markdown(f"<span style='color:{gv_col}; font-weight:bold;'>{r['GV']:+.2f}</span>", unsafe_allow_html=True)
-                            
-                            # 1H Anzeige
-                            c1h_col = "#00FF00" if r.get('ch1h', 0) >= 0 else "#FF4B4B"
-                            c4.markdown(f"<span style='color:{c1h_col};'>{r.get('ch1h', 0):+.2f}%</span>", unsafe_allow_html=True)
-                            
-                            # 24H Anzeige
-                            c24h_col = "#00FF00" if r.get('ch24h', 0) >= 0 else "#FF4B4B"
-                            c5.markdown(f"<span style='color:{c24h_col};'>{r.get('ch24h', 0):+.2f}%</span>", unsafe_allow_html=True)
-                            
-                            c6.write(f"{r['menge']}")
-                            
-                            with c7:
-                                col_edit, col_sell, col_del = st.columns(3)
-                                # ... (Deine Buttons 📝, 💰, 🗑️ bleiben hier wie vorher)
+            for _, r in sub.iterrows():
+                c1, c2, c3, c4, c5, c6, c7 = st.columns([2, 1.2, 1.2, 0.8, 0.8, 1, 1.5])
+                
+                c1.write(f"**{r['name']}**")
+                c2.write(f"{r['Wert']:,.2f}")
+                
+                gv_col = "green" if r['GV'] >= 0 else "red"
+                c3.markdown(f"<span style='color:{gv_col}; font-weight:bold;'>{r['GV']:+.2f}</span>", unsafe_allow_html=True)
+                
+                # Kursbewegung 1H (Berechnet aus hist)
+                c1h_val = r.get('ch1h', 0)
+                c1h_col = "#00FF00" if c1h_val >= 0 else "#FF4B4B"
+                c4.markdown(f"<span style='color:{c1h_col};'>{c1h_val:+.2f}%</span>", unsafe_allow_html=True)
+                
+                # Kursbewegung 24H
+                c24h_val = r.get('ch24h', 0)
+                c24h_col = "#00FF00" if c24h_val >= 0 else "#FF4B4B"
+                c5.markdown(f"<span style='color:{c24h_col};'>{c24h_val:+.2f}%</span>", unsafe_allow_html=True)
+                
+                c6.write(f"{r['menge']}")
+                
+                # --- AKTIONEN ---
+                with c7:
+                    col_edit, col_sell, col_del = st.columns(3)
+                    
+                    with col_edit:
+                        if st.button("📝", key=f"ed_btn_{r['orig_idx']}"):
+                            st.info("Nutze die Eingabemaske oben zum Ändern.") # Oder Popover hier einfügen
+
+                    with col_sell:
+                        with st.popover("💰"):
+                            st.write(f"Verkauf: {r['name']}")
+                            v_m = st.number_input("Menge", 0.0, float(r['menge']), float(r['menge']), key=f"sell_val_{r['orig_idx']}")
+                            if st.button("Bestätigen", key=f"sell_btn_{r['orig_idx']}"):
+                                df_full = pd.read_csv(filename)
+                                if v_m >= r['menge']:
+                                    df_full = df_full.drop(r['orig_idx'])
+                                else:
+                                    df_full.at[r['orig_idx'], 'menge'] = r['menge'] - v_m
+                                df_full.to_csv(filename, index=False)
+                                st.rerun()
+
+                    with col_del:
+                        if st.button("🗑️", key=f"del_btn_{r['orig_idx']}"):
+                            df_full = pd.read_csv(filename)
+                            df_full = df_full.drop(r['orig_idx'])
+                            df_full.to_csv(filename, index=False)
+                            st.rerun()
 
             # --- VISUALISIERUNG & STATS ---
             col_chart, col_stats, col_news = st.columns([1.5, 1, 1])
