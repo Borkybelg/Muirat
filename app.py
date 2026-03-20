@@ -266,7 +266,7 @@ st.divider()
 
 t_port, t_sig, t_multi, t_sec = st.tabs(["💰 PORTFOLIO", "🚦 SIGNAL MONITOR", "🖼️ TERMINAL", "📈 SEKTOREN"])
 
-# --- TAB 1: PORTFOLIO ---
+# --- TAB 1: PORTFOLIO (UPDATE: 1H, 24H & EK ANZEIGE) ---
 with t_port:
     st.subheader("🔍 Neues Asset suchen & Portfolio erweitern")
     with st.expander("➕ Asset-Eingabemaske", expanded=False):
@@ -278,129 +278,134 @@ with t_port:
             nek = c4.number_input("EK (Lokalwährung)", format="%.2f")
             ncat = c5.selectbox("Typ", ["Aktie", "Krypto", "ETF"])
             if st.form_submit_button("➕ Hinzufügen"):
-                info = get_live_data(ntick)
-                if info:
-                    fname = nname if nname else info['name']
-                    nrow = pd.DataFrame([{"ticker":ntick.upper(),"name":fname,"menge":nqty,"kaufpreis":nek,"typ":ncat,"curr":info['currency']}])
+                # Erweitertes get_live_data wird hier genutzt
+                t_info = yf.Ticker(ntick)
+                try:
+                    hist = t_info.history(period="2d")
+                    cp = hist['Close'].iloc[-1]
+                    curr = t_info.fast_info.currency
+                    fname = nname if nname else ntick.upper()
+                    nrow = pd.DataFrame([{"ticker":ntick.upper(),"name":fname,"menge":nqty,"kaufpreis":nek,"typ":ncat,"curr":curr}])
                     if os.path.exists(filename):
                         pd.concat([pd.read_csv(filename), nrow]).to_csv(filename, index=False)
                     else: nrow.to_csv(filename, index=False)
                     st.success(f"{fname} hinzugefügt!"); st.rerun()
-                else: st.error("Ticker nicht gefunden!")
+                except: st.error("Ticker nicht gefunden!")
 
     if os.path.exists(filename):
         df = pd.read_csv(filename).dropna(subset=['ticker'])
         if not df.empty:
             results = []
             for idx, row in df.iterrows():
-                live = get_live_data(row['ticker'])
-                if live and live['price'] > 0:
-                    cp = live['price']
-                    asset_curr = live['currency'] 
-                    rate = get_fx_rate(asset_curr, base_currency)
-                    val_base = row['menge'] * cp * rate
-                    inv_base = row['menge'] * row['kaufpreis'] * rate
-                    results.append({**row, "Wert": val_base, "Invest": inv_base, "GV": val_base - inv_base, "orig_idx": idx})
+                try:
+                    t = yf.Ticker(row['ticker'])
+                    # Wir brauchen history für 1h/24h Änderungen
+                    hist = t.history(period="2d", interval="1h")
+                    if not hist.empty:
+                        cp = hist['Close'].iloc[-1]
+                        # 24h Änderung (ungefähr über 2 Tage Close)
+                        change_24h = ((cp / hist['Close'].iloc[0]) - 1) * 100 if len(hist) > 1 else 0
+                        # 1h Änderung
+                        change_1h = ((cp / hist['Close'].iloc[-2]) - 1) * 100 if len(hist) > 1 else 0
+                        
+                        asset_curr = row.get('curr', base_currency) 
+                        rate = get_fx_rate(asset_curr, base_currency)
+                        val_base = row['menge'] * cp * rate
+                        inv_base = row['menge'] * row['kaufpreis'] * rate
+                        
+                        results.append({
+                            **row, 
+                            "Wert": val_base, 
+                            "Invest": inv_base, 
+                            "GV": val_base - inv_base, 
+                            "ch1h": change_1h,
+                            "ch24h": change_24h,
+                            "orig_idx": idx
+                        })
+                except: continue
 
-            rdf = pd.DataFrame(results)
-            total_v = rdf['Wert'].sum()
-            total_gv = rdf['GV'].sum()
-            total_inv = rdf['Invest'].sum()
-            total_p = (total_gv / total_inv * 100) if total_inv > 0 else 0
-            
-            st.metric(f"🏦 GESAMTDEPOT ({base_currency})", f"{total_v:,.2f}", f"{total_p:+.2f}% ({total_gv:,.2f})")
-            st.divider()
+            if results:
+                rdf = pd.DataFrame(results)
+                total_v = rdf['Wert'].sum()
+                total_gv = rdf['GV'].sum()
+                total_inv = rdf['Invest'].sum()
+                total_p = (total_gv / total_inv * 100) if total_inv > 0 else 0
+                
+                st.metric(f"🏦 GESAMTDEPOT ({base_currency})", f"{total_v:,.2f}", f"{total_p:+.2f}% ({total_gv:,.2f})")
+                st.divider()
 
-            # --- VISUALISIERUNG & STATS ---
-            col_chart, col_stats, col_news = st.columns([1.5, 1, 1])
-            with col_chart:
-                import plotly.express as px
-                c_data = rdf.groupby('typ')['Wert'].sum().reset_index()
-                fig = px.pie(c_data, values='Wert', names='typ', hole=0.5, color_discrete_map={'Aktie':'#3498db', 'Krypto':'#f1c40f', 'ETF':'#9b59b6'})
-                fig.update_layout(margin=dict(t=0, b=0, l=0, r=0), height=220, showlegend=False)
-                st.plotly_chart(fig, use_container_width=True, key="unique_portfolio_donut")
+                # --- ASSET LISTEN ---
+                for k in ["Aktie", "Krypto", "ETF"]:
+                    sub = rdf[rdf['typ'] == k]
+                    if not sub.empty:
+                        s_wert = sub['Wert'].sum()
+                        s_gv = sub['GV'].sum()
+                        with st.expander(f"📦 {k}s (Summe: {s_wert:,.2f} | G/V: {s_gv:+.2f})", expanded=True):
+                            # Spalten-Layout angepasst für 1h und 24h
+                            h1, h2, h3, h4, h5, h6, h7 = st.columns([2, 1.2, 1.2, 0.8, 0.8, 0.8, 1.2])
+                            h1.caption("NAME / EK")
+                            h2.caption(f"WERT ({base_currency})")
+                            h3.caption("G/V")
+                            h4.caption("1H %")
+                            h5.caption("24H %")
+                            h6.caption("MENGE")
+                            h7.caption("AKTION")
 
-            with col_stats:
-                st.write("🏆 **Top Asset**")
-                top_r = rdf.loc[rdf['GV'].idxmax()]
-                st.success(f"**{top_r['name']}**\n\n{top_r['GV']:+.2f} {base_currency}")
-                st.write("📉 **Flop Asset**")
-                flop_r = rdf.loc[rdf['GV'].idxmin()]
-                st.error(f"**{flop_r['name']}**\n\n{flop_r['GV']:+.2f} {base_currency}")
-
-            with col_news:
-                st.write("📰 **Letzte News**")
-                main_t = rdf.loc[rdf['Wert'].idxmax()]['ticker']
-                y_news = get_yahoo_news(main_t)
-                if y_news:
-                    for n in y_news[:2]:
-                        if 'title' in n and 'link' in n:
-                            st.markdown(f"• <small>[{n['title'][:45]}...]({n['link']})</small>", unsafe_allow_html=True)
-                else: st.caption("Keine News gefunden.")
-
-            st.divider()
-
-            # --- ASSET LISTEN ---
-            for k in ["Aktie", "Krypto", "ETF"]:
-                sub = rdf[rdf['typ'] == k]
-                if not sub.empty:
-                    s_wert = sub['Wert'].sum()
-                    s_gv = sub['GV'].sum()
-                    with st.expander(f"📦 {k}s (Summe: {s_wert:,.2f} | G/V: {s_gv:+.2f})", expanded=True):
-                        h1, h2, h3, h4, h5 = st.columns([2, 1.5, 1.5, 1, 1.2])
-                        h1.caption("NAME")
-                        h2.caption(f"WERT ({base_currency})")
-                        h3.caption("G/V")
-                        h4.caption("MENGE")
-                        h5.caption("AKTION")
-
-                        for _, r in sub.iterrows():
-                            c1, c2, c3, c4, c5 = st.columns([2, 1.5, 1.5, 1, 1.2])
-                            c1.write(f"**{r['name']}**")
-                            c2.write(f"{r['Wert']:,.2f}")
-                            color = "green" if r['GV'] >= 0 else "red"
-                            c3.markdown(f"<span style='color:{color}; font-weight:bold;'>{r['GV']:+.2f}</span>", unsafe_allow_html=True)
-                            c4.write(f"{r['menge']}")
-                            
-                            with c5:
-                                col_edit, col_sell, col_del = st.columns(3)
-                                # 1. Bearbeiten
-                                with col_edit:
-                                    with st.popover("📝"):
-                                        with st.form(f"ed_{r['orig_idx']}"):
-                                            et = st.text_input("Ticker", r['ticker'])
-                                            en = st.text_input("Name", r['name'])
-                                            em = st.number_input("Menge", float(r['menge']))
-                                            ee = st.number_input("EK", float(r['kaufpreis']))
-                                            if st.form_submit_button("Speichern"):
-                                                df_edit = pd.read_csv(filename)
-                                                df_edit.at[r['orig_idx'], 'ticker'] = et.upper()
-                                                df_edit.at[r['orig_idx'], 'name'] = en
-                                                df_edit.at[r['orig_idx'], 'menge'] = em
-                                                df_edit.at[r['orig_idx'], 'kaufpreis'] = ee
-                                                df_edit.to_csv(filename, index=False)
+                            for _, r in sub.iterrows():
+                                c1, c2, c3, c4, c5, c6, c7 = st.columns([2, 1.2, 1.2, 0.8, 0.8, 0.8, 1.2])
+                                
+                                # Spalte 1: Name und EK (Kaufpreis)
+                                c1.markdown(f"**{r['name']}**\n<small>EK: {r['kaufpreis']:,.2f}</small>", unsafe_allow_html=True)
+                                
+                                # Spalte 2: Aktueller Wert
+                                c2.write(f"{r['Wert']:,.2f}")
+                                
+                                # Spalte 3: G/V
+                                color_gv = "green" if r['GV'] >= 0 else "red"
+                                c3.markdown(f"<span style='color:{color_gv}; font-weight:bold;'>{r['GV']:+.2f}</span>", unsafe_allow_html=True)
+                                
+                                # Spalte 4: 1H %
+                                c4_col = "#00FF00" if r['ch1h'] >= 0 else "#FF4B4B"
+                                c4.markdown(f"<span style='color:{c4_col};'>{r['ch1h']:+.2f}%</span>", unsafe_allow_html=True)
+                                
+                                # Spalte 5: 24H %
+                                c5_col = "#00FF00" if r['ch24h'] >= 0 else "#FF4B4B"
+                                c5.markdown(f"<span style='color:{c5_col};'>{r['ch24h']:+.2f}%</span>", unsafe_allow_html=True)
+                                
+                                # Spalte 6: Menge
+                                c6.write(f"{r['menge']}")
+                                
+                                # Spalte 7: Aktionen
+                                with c7:
+                                    col_edit, col_sell, col_del = st.columns(3)
+                                    with col_edit:
+                                        with st.popover("📝"):
+                                            with st.form(f"ed_{r['orig_idx']}"):
+                                                en = st.text_input("Name", r['name'])
+                                                em = st.number_input("Menge", float(r['menge']))
+                                                ee = st.number_input("EK", float(r['kaufpreis']))
+                                                if st.form_submit_button("Speichern"):
+                                                    df_edit = pd.read_csv(filename)
+                                                    df_edit.at[r['orig_idx'], 'name'] = en
+                                                    df_edit.at[r['orig_idx'], 'menge'] = em
+                                                    df_edit.at[r['orig_idx'], 'kaufpreis'] = ee
+                                                    df_edit.to_csv(filename, index=False)
+                                                    st.rerun()
+                                    with col_sell:
+                                        with st.popover("💰"):
+                                            v_m = st.number_input("Menge", 0.0, float(r['menge']), float(r['menge']), key=f"vs_{r['orig_idx']}")
+                                            if st.button("Bestätigen", key=f"vb_{r['orig_idx']}"):
+                                                df_sell = pd.read_csv(filename)
+                                                if v_m >= r['menge']: df_sell = df_sell.drop(r['orig_idx'])
+                                                else: df_sell.at[r['orig_idx'], 'menge'] = r['menge'] - v_m
+                                                df_sell.to_csv(filename, index=False)
                                                 st.rerun()
-
-                                # 2. Teilverkauf
-                                with col_sell:
-                                    with st.popover("💰"):
-                                        v_m = st.number_input("Menge", 0.0, float(r['menge']), float(r['menge']), key=f"vs_{r['orig_idx']}")
-                                        if st.button("Bestätigen", key=f"vb_{r['orig_idx']}"):
-                                            df_sell = pd.read_csv(filename)
-                                            if v_m >= r['menge']:
-                                                df_sell = df_sell.drop(r['orig_idx'])
-                                            else:
-                                                df_sell.at[r['orig_idx'], 'menge'] = r['menge'] - v_m
-                                            df_sell.to_csv(filename, index=False)
+                                    with col_del:
+                                        if st.button("🗑️", key=f"dl_{r['orig_idx']}"):
+                                            df_del = pd.read_csv(filename)
+                                            df_del = df_del.drop(r['orig_idx'])
+                                            df_del.to_csv(filename, index=False)
                                             st.rerun()
-
-                                # 3. Löschen
-                                with col_del:
-                                    if st.button("🗑️", key=f"dl_{r['orig_idx']}"):
-                                        df_del = pd.read_csv(filename)
-                                        df_del = df_del.drop(r['orig_idx'])
-                                        df_del.to_csv(filename, index=False)
-                                        st.rerun()
 
     st.divider()
     cd, cu = st.columns(2)
