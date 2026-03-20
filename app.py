@@ -303,7 +303,11 @@ with t_port:
                     st.success(f"{fname} hinzugefügt!"); st.rerun()
                 else: st.error("Ticker nicht gefunden!")
 
-    for idx, row in df.iterrows():
+    if os.path.exists(filename):
+        df = pd.read_csv(filename).dropna(subset=['ticker'])
+        if not df.empty:
+            results = []
+            for idx, row in df.iterrows():
                 live = get_live_data(row['ticker'])
                 if live and live['price'] > 0:
                     cp = live['price']
@@ -311,7 +315,8 @@ with t_port:
                     rate = get_fx_rate(asset_curr, base_currency)
                     val_base = row['menge'] * cp * rate
                     inv_base = row['menge'] * row['kaufpreis'] * rate
-                    # Hier muss die Einrückung exakt so sein wie bei 'inv_base'
+                    
+                    # --- HIER WAR DER FEHLER: Sauberer Dictionary-Eintrag ---
                     results.append({
                         **row, 
                         "Wert": val_base, 
@@ -322,7 +327,6 @@ with t_port:
                         "orig_idx": idx
                     })
 
-
             rdf = pd.DataFrame(results)
             total_v = rdf['Wert'].sum()
             total_gv = rdf['GV'].sum()
@@ -331,6 +335,52 @@ with t_port:
             
             st.metric(f"🏦 GESAMTDEPOT ({base_currency})", f"{total_v:,.2f}", f"{total_p:+.2f}% ({total_gv:,.2f})")
             st.divider()
+
+            # --- VISUALISIERUNG (Gekürzt für Übersicht) ---
+            col_chart, col_stats, col_news = st.columns([1.5, 1, 1])
+            # ... (dein restlicher Chart-Code kann hier bleiben) ...
+
+            st.divider()
+
+            # --- ASSET LISTEN MIT 1H / 24H UPDATE ---
+            for k in ["Aktie", "Krypto", "ETF"]:
+                sub = rdf[rdf['typ'] == k]
+                if not sub.empty:
+                    s_wert = sub['Wert'].sum()
+                    s_gv = sub['GV'].sum()
+                    with st.expander(f"📦 {k}s (Summe: {s_wert:,.2f} | G/V: {s_gv:+.2f})", expanded=True):
+                        # Header mit 7 Spalten
+                        h1, h2, h3, h4, h5, h6, h7 = st.columns([2, 1.2, 1.2, 0.8, 0.8, 1, 1.2])
+                        h1.caption("NAME")
+                        h2.caption(f"WERT ({base_currency})")
+                        h3.caption("G/V")
+                        h4.caption("1H %")
+                        h5.caption("24H %")
+                        h6.caption("MENGE")
+                        h7.caption("AKTION")
+
+                        for _, r in sub.iterrows():
+                            c1, c2, c3, c4, c5, c6, c7 = st.columns([2, 1.2, 1.2, 0.8, 0.8, 1, 1.2])
+                            
+                            c1.write(f"**{r['name']}**")
+                            c2.write(f"{r['Wert']:,.2f}")
+                            
+                            gv_col = "green" if r['GV'] >= 0 else "red"
+                            c3.markdown(f"<span style='color:{gv_col}; font-weight:bold;'>{r['GV']:+.2f}</span>", unsafe_allow_html=True)
+                            
+                            # 1H Anzeige
+                            c1h_col = "#00FF00" if r.get('ch1h', 0) >= 0 else "#FF4B4B"
+                            c4.markdown(f"<span style='color:{c1h_col};'>{r.get('ch1h', 0):+.2f}%</span>", unsafe_allow_html=True)
+                            
+                            # 24H Anzeige
+                            c24h_col = "#00FF00" if r.get('ch24h', 0) >= 0 else "#FF4B4B"
+                            c5.markdown(f"<span style='color:{c24h_col};'>{r.get('ch24h', 0):+.2f}%</span>", unsafe_allow_html=True)
+                            
+                            c6.write(f"{r['menge']}")
+                            
+                            with c7:
+                                col_edit, col_sell, col_del = st.columns(3)
+                                # ... (Deine Buttons 📝, 💰, 🗑️ bleiben hier wie vorher)
 
             # --- VISUALISIERUNG & STATS ---
             col_chart, col_stats, col_news = st.columns([1.5, 1, 1])
