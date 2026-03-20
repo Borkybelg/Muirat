@@ -296,6 +296,7 @@ with t_port:
         df = pd.read_csv(filename).dropna(subset=['ticker'])
         if not df.empty:
             results = []
+            results = []
             for idx, row in df.iterrows():
                 try:
                     t = yf.Ticker(row['ticker'])
@@ -303,15 +304,31 @@ with t_port:
                     hist = t.history(period="2d", interval="1h")
                     if not hist.empty:
                         cp = hist['Close'].iloc[-1]
-                        # 24h Änderung (ungefähr über 2 Tage Close)
-                        change_24h = ((cp / hist['Close'].iloc[0]) - 1) * 100 if len(hist) > 1 else 0
-                        # 1h Änderung
-                        change_1h = ((cp / hist['Close'].iloc[-2]) - 1) * 100 if len(hist) > 1 else 0
                         
-                        asset_curr = row.get('curr', base_currency) 
-                        rate = get_fx_rate(asset_curr, base_currency)
+                        # --- WÄHRUNGS-FIX START ---
+                        # Wir versuchen die Währung direkt vom Asset zu bestimmen
+                        try:
+                            asset_curr = t.fast_info.currency
+                        except:
+                            asset_curr = row.get('curr', base_currency)
+
+                        # Falls yfinance "GBp" (Pence) liefert, korrigieren wir auf GBP
+                        if asset_curr == "GBp": asset_curr = "GBP"
+                        
+                        # WICHTIG: Wenn Asset-Währung = Basis-Währung, dann Rate = 1.0
+                        # Das verhindert, dass 60.000 BTC nochmal mit 0.92 multipliziert werden
+                        if str(asset_curr).upper() == str(base_currency).upper():
+                            rate = 1.0
+                        else:
+                            rate = get_fx_rate(asset_curr, base_currency)
+                        # --- WÄHRUNGS-FIX ENDE ---
+
                         val_base = row['menge'] * cp * rate
                         inv_base = row['menge'] * row['kaufpreis'] * rate
+                        
+                        # Performance-Daten
+                        change_24h = ((cp / hist['Close'].iloc[0]) - 1) * 100 if len(hist) > 1 else 0
+                        change_1h = ((cp / hist['Close'].iloc[-2]) - 1) * 100 if len(hist) > 1 else 0
                         
                         results.append({
                             **row, 
@@ -322,8 +339,9 @@ with t_port:
                             "ch24h": change_24h,
                             "orig_idx": idx
                         })
-                except: continue
-
+                except Exception as e:
+                    st.error(f"Fehler bei {row['ticker']}: {e}")
+                    continue
             if results:
                 rdf = pd.DataFrame(results)
                 total_v = rdf['Wert'].sum()
