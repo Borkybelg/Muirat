@@ -321,7 +321,7 @@ with t_port:
                         "ch24h": live.get('price_change_24h', 0),
                         "orig_idx": idx
                     })
-})
+
 
             rdf = pd.DataFrame(results)
             total_v = rdf['Wert'].sum()
