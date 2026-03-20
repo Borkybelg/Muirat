@@ -414,20 +414,31 @@ for k in ["Aktie", "Krypto", "ETF"]:
                                     df_save.to_csv(filename, index=False)
                                     st.rerun()
 
-                    # 2. VERKAUFEN (💰)
+                    # 2. VERKAUFEN (💰) - Jetzt mit Verkaufspreis
                     with btn_sell:
                         with st.popover("💰"):
-                            st.write("Teilverkauf")
+                            st.write(f"Verkauf: {r['name']}")
+                            # Eingabe der Menge
                             sell_qty = st.number_input("Menge zum Verkaufen", 0.0, float(r['menge']), float(r['menge']), key=f"s_qty_{r['orig_idx']}")
+                            # NEU: Eingabe des Verkaufspreises
+                            sell_price = st.number_input("Verkaufspreis pro Stück", value=float(live['price'] if live else 0), key=f"s_prc_{r['orig_idx']}")
+                            
                             if st.button("Verkauf Bestätigen", key=f"s_btn_{r['orig_idx']}"):
                                 df_temp = pd.read_csv(filename)
+                                
+                                # Berechnung für deine Notizen (optional: hier könnte man eine History-Datei füllen)
+                                gewinn = (sell_price - r['kaufpreis']) * sell_qty
+                                st.toast(f"Verkauft! Gewinn: {gewinn:,.2f} {r.get('curr', 'EUR')}")
+
                                 if sell_qty >= r['menge']:
+                                    # Alles verkauft -> Zeile löschen
                                     df_temp = df_temp.drop(r['orig_idx'])
                                 else:
+                                    # Teilverkauf -> Menge reduzieren
                                     df_temp.at[r['orig_idx'], 'menge'] = r['menge'] - sell_qty
+                                
                                 df_temp.to_csv(filename, index=False)
                                 st.rerun()
-
                     # 3. LÖSCHEN (🗑️)
                     with btn_del:
                         if st.button("🗑️", key=f"del_final_{r['orig_idx']}"):
@@ -443,7 +454,8 @@ for k in ["Aktie", "Krypto", "ETF"]:
                 c_data = rdf.groupby('typ')['Wert'].sum().reset_index()
                 fig = px.pie(c_data, values='Wert', names='typ', hole=0.5, color_discrete_map={'Aktie':'#3498db', 'Krypto':'#f1c40f', 'ETF':'#9b59b6'})
                 fig.update_layout(margin=dict(t=0, b=0, l=0, r=0), height=220, showlegend=False)
-                st.plotly_chart(fig, use_container_width=True, key="unique_portfolio_donut")
+                # Ändere den Key zu etwas Dynamischem oder entferne ihn einfach:
+                st.plotly_chart(fig, use_container_width=True, key=f"donut_{base_currency}")
 
             with col_stats:
                 st.write("🏆 **Top Asset**")
