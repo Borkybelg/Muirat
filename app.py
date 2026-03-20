@@ -408,11 +408,25 @@ with t_port:
                                                     st.rerun()
                                     with col_sell:
                                         with st.popover("💰"):
-                                            v_m = st.number_input("Menge", 0.0, float(r['menge']), float(r['menge']), key=f"vs_{r['orig_idx']}")
-                                            if st.button("Bestätigen", key=f"vb_{r['orig_idx']}"):
+                                            # Hier sind jetzt zwei Eingabefelder
+                                            v_m = st.number_input("Menge verkaufen", 0.0, float(r['menge']), float(r['menge']), key=f"vs_{r['orig_idx']}")
+                                            v_p = st.number_input("Verkaufspreis (pro Stück)", 0.0, None, float(r['Wert']/r['menge']), key=f"vp_{r['orig_idx']}")
+                                            
+                                            if st.button("Verkauf Bestätigen", key=f"vb_{r['orig_idx']}"):
                                                 df_sell = pd.read_csv(filename)
-                                                if v_m >= r['menge']: df_sell = df_sell.drop(r['orig_idx'])
-                                                else: df_sell.at[r['orig_idx'], 'menge'] = r['menge'] - v_m
+                                                
+                                                # Berechnung des realisierten Gewinns für die Anzeige
+                                                gewinn = (v_p - r['kaufpreis']) * v_m
+                                                
+                                                if v_m >= r['menge']:
+                                                    # Komplettverkauf: Zeile löschen
+                                                    df_sell = df_sell.drop(r['orig_idx'])
+                                                    st.success(f"Komplett verkauft! Realisierter G/V: {gewinn:,.2f}")
+                                                else:
+                                                    # Teilverkauf: Menge reduzieren
+                                                    df_sell.at[r['orig_idx'], 'menge'] = r['menge'] - v_m
+                                                    st.success(f"Teilverkauf gebucht! Gewinn: {gewinn:,.2f}")
+                                                
                                                 df_sell.to_csv(filename, index=False)
                                                 st.rerun()
                                     with col_del:
