@@ -411,33 +411,46 @@ with t_port:
 
             st.divider()
 
-            # --- ASSET LISTEN ---
+            # --- ASSET LISTEN (KOMPLETT MIT AKTIONEN) ---
             for k in ["Aktie", "Krypto", "ETF"]:
                 sub = rdf[rdf['typ'] == k]
                 if not sub.empty:
                     s_wert = sub['Wert'].sum()
                     s_gv = sub['GV'].sum()
                     with st.expander(f"📦 {k}s (Summe: {s_wert:,.2f} | G/V: {s_gv:+.2f})", expanded=True):
+                        # Header mit 7 Spalten
                         h1, h2, h3, h4, h5, h6, h7 = st.columns([2, 1.2, 1.2, 0.8, 0.8, 1, 1.2])
                         h1.caption("NAME")
                         h2.caption(f"WERT ({base_currency})")
                         h3.caption("G/V")
-                        h4.caption("1H %")   # <--- HINZUFÜGEN
-                        h5.caption("24H %")  # <--- HINZUFÜGEN
+                        h4.caption("1H %")
+                        h5.caption("24H %")
                         h6.caption("MENGE")
                         h7.caption("AKTION")
 
                         for _, r in sub.iterrows():
-                            c1, c2, c3, c4, c5 = st.columns([2, 1.5, 1.5, 1, 1.2])
+                            c1, c2, c3, c4, c5, c6, c7 = st.columns([2, 1.2, 1.2, 0.8, 0.8, 1, 1.2])
+                            
                             c1.write(f"**{r['name']}**")
                             c2.write(f"{r['Wert']:,.2f}")
-                            color = "green" if r['GV'] >= 0 else "red"
-                            c3.markdown(f"<span style='color:{color}; font-weight:bold;'>{r['GV']:+.2f}</span>", unsafe_allow_html=True)
-                            c4.write(f"{r['menge']}")
                             
-                            with c5:
+                            gv_col = "green" if r['GV'] >= 0 else "red"
+                            c3.markdown(f"<span style='color:{gv_col}; font-weight:bold;'>{r['GV']:+.2f}</span>", unsafe_allow_html=True)
+                            
+                            # Kursbewegung 1H (Grün/Rot)
+                            c1h_col = "#00FF00" if r.get('ch1h', 0) >= 0 else "#FF4B4B"
+                            c4.markdown(f"<span style='color:{c1h_col};'>{r.get('ch1h', 0):+.2f}%</span>", unsafe_allow_html=True)
+                            
+                            # Kursbewegung 24H (Grün/Rot)
+                            c24h_col = "#00FF00" if r.get('ch24h', 0) >= 0 else "#FF4B4B"
+                            c5.markdown(f"<span style='color:{c24h_col};'>{r.get('ch24h', 0):+.2f}%</span>", unsafe_allow_html=True)
+                            
+                            c6.write(f"{r['menge']}")
+                            
+                            with c7:
                                 col_edit, col_sell, col_del = st.columns(3)
-                                # 1. Bearbeiten
+                                
+                                # 1. Bearbeiten (📝)
                                 with col_edit:
                                     with st.popover("📝"):
                                         with st.form(f"ed_{r['orig_idx']}"):
@@ -454,7 +467,7 @@ with t_port:
                                                 df_edit.to_csv(filename, index=False)
                                                 st.rerun()
 
-                                # 2. Teilverkauf
+                                # 2. Verkaufen (💰)
                                 with col_sell:
                                     with st.popover("💰"):
                                         v_m = st.number_input("Menge", 0.0, float(r['menge']), float(r['menge']), key=f"vs_{r['orig_idx']}")
@@ -467,7 +480,7 @@ with t_port:
                                             df_sell.to_csv(filename, index=False)
                                             st.rerun()
 
-                                # 3. Löschen
+                                # 3. Löschen (🗑️)
                                 with col_del:
                                     if st.button("🗑️", key=f"dl_{r['orig_idx']}"):
                                         df_del = pd.read_csv(filename)
