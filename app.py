@@ -463,22 +463,44 @@ with t_port:
                         # ... (Code zum Löschen)
                         st.rerun()
 
-            # --- DIESER BLOCK WAR FALSCH eingerückt ---
-            # Schiebe alles ab hier nach RECHTS (1x Tab)
+            if st.button("🗑️", key=f"dl_{r['orig_idx']}"):
+                                    df_d = pd.read_csv(filename)
+                                    df_d = df_d.drop(r['orig_idx'])
+                                    df_d.to_csv(filename, index=False)
+                                    st.rerun()
+
+            # --- DIESER BLOCK MUSS GENAU HIER STEHEN ---
+            st.divider()
+            
             col_chart, col_stats, col_news = st.columns([1.5, 1, 1])
 
-                with col_chart:
-                    import plotly.express as px
-                    # ... (Donut Chart Code)
-                    st.plotly_chart(fig, use_container_width=True, key=f"donut_main_{base_currency}")
+            with col_chart:
+                import plotly.express as px
+                c_data = rdf.groupby('typ')['Wert'].sum().reset_index()
+                fig = px.pie(c_data, values='Wert', names='typ', hole=0.5, 
+                             color_discrete_map={'Aktie':'#3498db', 'Krypto':'#f1c40f', 'ETF':'#9b59b6'})
+                fig.update_layout(margin=dict(t=0, b=0, l=0, r=0), height=220, showlegend=True)
+                st.plotly_chart(fig, use_container_width=True, key=f"donut_main_{base_currency}")
 
-                with col_stats:
-                # ... (Top/Flop Code)
+            with col_stats:
+                st.write("🏆 **Top Asset**")
+                # Sicherheitscheck falls DF leer
+                if not rdf.empty:
+                    top_r = rdf.loc[rdf['GV'].idxmax()]
+                    st.success(f"**{top_r['name']}**\n\n{top_r['GV']:+.2f} {base_currency}")
+                    
+                    st.write("📉 **Flop Asset**")
+                    flop_r = rdf.loc[rdf['GV'].idxmin()]
+                    st.error(f"**{flop_r['name']}**\n\n{flop_r['GV']:+.2f} {base_currency}")
 
-                with col_news:
-                # ... (News Code)
-
-            st.divider() 
+            with col_news:
+                st.write("📰 **Top News**")
+                if not rdf.empty:
+                    main_t = rdf.loc[rdf['Wert'].idxmax()]['ticker']
+                    y_news = get_yahoo_news(main_t)
+                    if y_news:
+                        for n in y_news[:2]:
+                            st.markdown(f"• <small>[{n['title'][:40]}...]({n['link']})</small>", unsafe_allow_html=True)
 
             # --- ASSET LISTEN (Jetzt stimmt die Einrückung wieder) ---
             for k in ["Aktie", "Krypto", "ETF"]:
