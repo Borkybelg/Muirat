@@ -241,7 +241,7 @@ if "password_correct" not in st.session_state:
     st.session_state["password_correct"] = False
 if not st.session_state["password_correct"]:
     pwd = st.text_input("Sicherheitscode:", type="password")
-    if st.button("Anmelden") or (pwd.lower() == "pa"):
+    if st.button("Anmelden") or (pwd.lower() == "para"):
         st.session_state["password_correct"] = True
         st.rerun()
     st.stop()
@@ -307,15 +307,16 @@ with t_port:
         df = pd.read_csv(filename).dropna(subset=['ticker'])
         if not df.empty:
             results = []
-            for idx, row in df.iterrows():
-                live = get_live_data(row['ticker'])
-                if live and live['price'] > 0:
-                    cp = live['price']
-                    asset_curr = live['currency'] 
-                    rate = get_fx_rate(asset_curr, base_currency)
-                    val_base = row['menge'] * cp * rate
-                    inv_base = row['menge'] * row['kaufpreis'] * rate
-                    results.append({**row, "Wert": val_base, "Invest": inv_base, "GV": val_base - inv_base, "orig_idx": idx})
+            # Ersetze die alte results.append Zeile (ca. Zeile 271) durch das hier:
+                results.append({
+                    **row, 
+                    "Wert": val_base, 
+                    "Invest": inv_base, 
+                    "GV": val_base - inv_base, 
+                    "ch1h": live.get('price_change_1h', 0) if live else 0,   # NEU
+                    "ch24h": live.get('price_change_24h', 0) if live else 0, # NEU
+                    "orig_idx": idx
+})
 
             rdf = pd.DataFrame(results)
             total_v = rdf['Wert'].sum()
