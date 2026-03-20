@@ -362,12 +362,14 @@ with t_port:
                     s_wert = sub['Wert'].sum()
                     s_gv = sub['GV'].sum()
                     with st.expander(f"📦 {k}s (Summe: {s_wert:,.2f} | G/V: {s_gv:+.2f})", expanded=True):
-                        h1, h2, h3, h4, h5 = st.columns([2, 1.5, 1.5, 1, 1.2])
+                        h1, h2, h3, h4, h5, h6, h7 = st.columns([2, 1.2, 1.2, 0.8, 0.8, 1, 1.2])
                         h1.caption("NAME")
                         h2.caption(f"WERT ({base_currency})")
                         h3.caption("G/V")
-                        h4.caption("MENGE")
-                        h5.caption("AKTION")
+                        h4.caption("1H %")   # <--- HINZUFÜGEN
+                        h5.caption("24H %")  # <--- HINZUFÜGEN
+                        h6.caption("MENGE")
+                        h7.caption("AKTION")
 
                         for _, r in sub.iterrows():
                             c1, c2, c3, c4, c5 = st.columns([2, 1.5, 1.5, 1, 1.2])
