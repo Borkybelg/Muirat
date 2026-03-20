@@ -353,77 +353,66 @@ with t_port:
                 st.divider()
 
                 # --- ASSET LISTEN ---
-                for k in ["Aktie", "Krypto", "ETF"]:
-                    sub = rdf[rdf['typ'] == k]
-                    if not sub.empty:
-                        s_wert = sub['Wert'].sum()
-                        s_gv = sub['GV'].sum()
-                        with st.expander(f"📦 {k}s (Summe: {s_wert:,.2f} | G/V: {s_gv:+.2f})", expanded=True):
-                            # Spalten-Layout angepasst für 1h und 24h
-                            h1, h2, h3, h4, h5, h6, h7 = st.columns([2, 1.2, 1.2, 0.8, 0.8, 0.8, 1.2])
-                            h1.caption("NAME / EK")
-                            h2.caption(f"WERT ({base_currency})")
-                            h3.caption("G/V")
-                            h4.caption("1H %")
-                            h5.caption("24H %")
-                            h6.caption("MENGE")
-                            h7.caption("AKTION")
+            for k in ["Aktie", "Krypto", "ETF"]:
+                sub = rdf[rdf['typ'] == k]
+                if not sub.empty:
+                    s_wert = sub['Wert'].sum()
+                    s_gv = sub['GV'].sum()
+                    with st.expander(f"📦 {k}s (Summe: {s_wert:,.2f} | G/V: {s_gv:+.2f})", expanded=True):
+                        h1, h2, h3, h4, h5 = st.columns([2, 1.5, 1.5, 1, 1.2])
+                        h1.caption("NAME")
+                        h2.caption(f"WERT ({base_currency})")
+                        h3.caption("G/V")
+                        h4.caption("MENGE")
+                        h5.caption("AKTION")
 
-                            for _, r in sub.iterrows():
-                                c1, c2, c3, c4, c5, c6, c7 = st.columns([2, 1.2, 1.2, 0.8, 0.8, 0.8, 1.2])
-                                
-                                # Spalte 1: Name und EK (Kaufpreis)
-                                c1.markdown(f"**{r['name']}**\n<small>EK: {r['kaufpreis']:,.2f}</small>", unsafe_allow_html=True)
-                                
-                                # Spalte 2: Aktueller Wert
-                                c2.write(f"{r['Wert']:,.2f}")
-                                
-                                # Spalte 3: G/V
-                                color_gv = "green" if r['GV'] >= 0 else "red"
-                                c3.markdown(f"<span style='color:{color_gv}; font-weight:bold;'>{r['GV']:+.2f}</span>", unsafe_allow_html=True)
-                                
-                                # Spalte 4: 1H %
-                                c4_col = "#00FF00" if r['ch1h'] >= 0 else "#FF4B4B"
-                                c4.markdown(f"<span style='color:{c4_col};'>{r['ch1h']:+.2f}%</span>", unsafe_allow_html=True)
-                                
-                                # Spalte 5: 24H %
-                                c5_col = "#00FF00" if r['ch24h'] >= 0 else "#FF4B4B"
-                                c5.markdown(f"<span style='color:{c5_col};'>{r['ch24h']:+.2f}%</span>", unsafe_allow_html=True)
-                                
-                                # Spalte 6: Menge
-                                c6.write(f"{r['menge']}")
-                                
-                                # Spalte 7: Aktionen
-                                with c7:
-                                    col_edit, col_sell, col_del = st.columns(3)
-                                    with col_edit:
-                                        with st.popover("📝"):
-                                            with st.form(f"ed_{r['orig_idx']}"):
-                                                en = st.text_input("Name", r['name'])
-                                                em = st.number_input("Menge", float(r['menge']))
-                                                ee = st.number_input("EK", float(r['kaufpreis']))
-                                                if st.form_submit_button("Speichern"):
-                                                    df_edit = pd.read_csv(filename)
-                                                    df_edit.at[r['orig_idx'], 'name'] = en
-                                                    df_edit.at[r['orig_idx'], 'menge'] = em
-                                                    df_edit.at[r['orig_idx'], 'kaufpreis'] = ee
-                                                    df_edit.to_csv(filename, index=False)
-                                                    st.rerun()
-                                    with col_sell:
-                                        with st.popover("💰"):
-                                            v_m = st.number_input("Menge", 0.0, float(r['menge']), float(r['menge']), key=f"vs_{r['orig_idx']}")
-                                            if st.button("Bestätigen", key=f"vb_{r['orig_idx']}"):
-                                                df_sell = pd.read_csv(filename)
-                                                if v_m >= r['menge']: df_sell = df_sell.drop(r['orig_idx'])
-                                                else: df_sell.at[r['orig_idx'], 'menge'] = r['menge'] - v_m
-                                                df_sell.to_csv(filename, index=False)
+                        for _, r in sub.iterrows():
+                            c1, c2, c3, c4, c5 = st.columns([2, 1.5, 1.5, 1, 1.2])
+                            c1.write(f"**{r['name']}**")
+                            c2.write(f"{r['Wert']:,.2f}")
+                            color = "green" if r['GV'] >= 0 else "red"
+                            c3.markdown(f"<span style='color:{color}; font-weight:bold;'>{r['GV']:+.2f}</span>", unsafe_allow_html=True)
+                            c4.write(f"{r['menge']}")
+                            
+                            with c5:
+                                col_edit, col_sell, col_del = st.columns(3)
+                                # 1. Bearbeiten
+                                with col_edit:
+                                    with st.popover("📝"):
+                                        with st.form(f"ed_{r['orig_idx']}"):
+                                            et = st.text_input("Ticker", r['ticker'])
+                                            en = st.text_input("Name", r['name'])
+                                            em = st.number_input("Menge", float(r['menge']))
+                                            ee = st.number_input("EK", float(r['kaufpreis']))
+                                            if st.form_submit_button("Speichern"):
+                                                df_edit = pd.read_csv(filename)
+                                                df_edit.at[r['orig_idx'], 'ticker'] = et.upper()
+                                                df_edit.at[r['orig_idx'], 'name'] = en
+                                                df_edit.at[r['orig_idx'], 'menge'] = em
+                                                df_edit.at[r['orig_idx'], 'kaufpreis'] = ee
+                                                df_edit.to_csv(filename, index=False)
                                                 st.rerun()
-                                    with col_del:
-                                        if st.button("🗑️", key=f"dl_{r['orig_idx']}"):
-                                            df_del = pd.read_csv(filename)
-                                            df_del = df_del.drop(r['orig_idx'])
-                                            df_del.to_csv(filename, index=False)
+
+                                # 2. Teilverkauf
+                                with col_sell:
+                                    with st.popover("💰"):
+                                        v_m = st.number_input("Menge", 0.0, float(r['menge']), float(r['menge']), key=f"vs_{r['orig_idx']}")
+                                        if st.button("Bestätigen", key=f"vb_{r['orig_idx']}"):
+                                            df_sell = pd.read_csv(filename)
+                                            if v_m >= r['menge']:
+                                                df_sell = df_sell.drop(r['orig_idx'])
+                                            else:
+                                                df_sell.at[r['orig_idx'], 'menge'] = r['menge'] - v_m
+                                            df_sell.to_csv(filename, index=False)
                                             st.rerun()
+
+                                # 3. Löschen
+                                with col_del:
+                                    if st.button("🗑️", key=f"dl_{r['orig_idx']}"):
+                                        df_del = pd.read_csv(filename)
+                                        df_del = df_del.drop(r['orig_idx'])
+                                        df_del.to_csv(filename, index=False)
+                                        st.rerun()
 
     st.divider()
     cd, cu = st.columns(2)
