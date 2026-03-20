@@ -299,19 +299,32 @@ with t_port:
             for idx, row in df.iterrows():
                 try:
                     t = yf.Ticker(row['ticker'])
-                    # Wir brauchen history für 1h/24h Änderungen
+                    # Wir holen die Daten
                     hist = t.history(period="2d", interval="1h")
                     if not hist.empty:
                         cp = hist['Close'].iloc[-1]
-                        # 24h Änderung (ungefähr über 2 Tage Close)
-                        change_24h = ((cp / hist['Close'].iloc[0]) - 1) * 100 if len(hist) > 1 else 0
-                        # 1h Änderung
-                        change_1h = ((cp / hist['Close'].iloc[-2]) - 1) * 100 if len(hist) > 1 else 0
                         
-                        asset_curr = row.get('curr', base_currency) 
-                        rate = get_fx_rate(asset_curr, base_currency)
+                        # --- WÄHRUNGS-FIX ---
+                        # Wir schauen, was yfinance als Währung für diesen Ticker meldet
+                        asset_curr = t.fast_info.currency 
+                        
+                        # Falls yfinance nichts liefert, nehmen wir den Wert aus der CSV
+                        if not asset_curr:
+                            asset_curr = row.get('curr', base_currency)
+                        
+                        # WICHTIG: Nur umrechnen, wenn die Währungen unterschiedlich sind!
+                        if asset_curr.upper() == base_currency.upper():
+                            rate = 1.0
+                        else:
+                            rate = get_fx_rate(asset_curr, base_currency)
+                        
+                        # Berechnung der Werte in Basiswährung
                         val_base = row['menge'] * cp * rate
                         inv_base = row['menge'] * row['kaufpreis'] * rate
+                        
+                        # Performance-Daten
+                        change_24h = ((cp / hist['Close'].iloc[0]) - 1) * 100 if len(hist) > 1 else 0
+                        change_1h = ((cp / hist['Close'].iloc[-2]) - 1) * 100 if len(hist) > 1 else 0
                         
                         results.append({
                             **row, 
@@ -322,7 +335,9 @@ with t_port:
                             "ch24h": change_24h,
                             "orig_idx": idx
                         })
-                except: continue
+                except Exception as e:
+                    print(f"Fehler bei {row['ticker']}: {e}")
+                    continue
 
             if results:
                 rdf = pd.DataFrame(results)
