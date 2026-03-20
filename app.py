@@ -457,15 +457,15 @@ for k in ["Aktie", "Krypto", "ETF"]:
             # Schiebe alles ab hier nach RECHTS (1x Tab)
             col_chart, col_stats, col_news = st.columns([1.5, 1, 1])
 
-            with col_chart:
-                import plotly.express as px
-                # ... (Donut Chart Code)
-                st.plotly_chart(fig, use_container_width=True, key=f"donut_main_{base_currency}")
+                with col_chart:
+                    import plotly.express as px
+                    # ... (Donut Chart Code)
+                    st.plotly_chart(fig, use_container_width=True, key=f"donut_main_{base_currency}")
 
-            with col_stats:
+                with col_stats:
                 # ... (Top/Flop Code)
 
-            with col_news:
+                with col_news:
                 # ... (News Code)
 
             st.divider() 
