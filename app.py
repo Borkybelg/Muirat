@@ -379,11 +379,9 @@ for k in ["Aktie", "Krypto", "ETF"]:
                 # Spalte 1: Name & Ticker
                 c1.markdown(f"**{r['name']}**\n<small>{r['ticker']}</small>", unsafe_allow_html=True)
                 
-                # Spalte 2: Aktueller Wert & Dein Kaufpreis (EK)
-                # Wir berechnen den EK pro Stück in Basiswährung
-                rate = get_fx_rate(r['curr'], base_currency)
-                ek_pro_stk = r['kaufpreis'] * rate
-                c2.markdown(f"**{r['Wert']:,.2f}**\n<small>EK: {ek_pro_stk:,.2f}</small>", unsafe_allow_html=True)
+                # Sicherer Zugriff: Falls 'curr' fehlt, nimm die Basiswährung
+                asset_currency = r.get('curr', base_currency) 
+                rate = get_fx_rate(asset_currency, base_currency)
                 
                 # Spalte 3: Gewinn/Verlust
                 gv_col = "green" if r['GV'] >= 0 else "red"
