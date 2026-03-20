@@ -303,19 +303,24 @@ with t_port:
                     st.success(f"{fname} hinzugefügt!"); st.rerun()
                 else: st.error("Ticker nicht gefunden!")
 
-    if os.path.exists(filename):
-        df = pd.read_csv(filename).dropna(subset=['ticker'])
-        if not df.empty:
-            results = []
-            # Ersetze die alte results.append Zeile (ca. Zeile 271) durch das hier:
-                results.append({
-                    **row, 
-                    "Wert": val_base, 
-                    "Invest": inv_base, 
-                    "GV": val_base - inv_base, 
-                    "ch1h": live.get('price_change_1h', 0) if live else 0,   # NEU
-                    "ch24h": live.get('price_change_24h', 0) if live else 0, # NEU
-                    "orig_idx": idx
+    for idx, row in df.iterrows():
+                live = get_live_data(row['ticker'])
+                if live and live['price'] > 0:
+                    cp = live['price']
+                    asset_curr = live['currency'] 
+                    rate = get_fx_rate(asset_curr, base_currency)
+                    val_base = row['menge'] * cp * rate
+                    inv_base = row['menge'] * row['kaufpreis'] * rate
+                    # Hier muss die Einrückung exakt so sein wie bei 'inv_base'
+                    results.append({
+                        **row, 
+                        "Wert": val_base, 
+                        "Invest": inv_base, 
+                        "GV": val_base - inv_base, 
+                        "ch1h": live.get('price_change_1h', 0),
+                        "ch24h": live.get('price_change_24h', 0),
+                        "orig_idx": idx
+                    })
 })
 
             rdf = pd.DataFrame(results)
