@@ -355,70 +355,87 @@ with t_port:
 
             st.divider()
 
-            # --- ASSET LISTEN ---
+# --- ASSET LISTEN (OPTIMIERT MIT EK & STÜCKZAHL) ---
 for k in ["Aktie", "Krypto", "ETF"]:
     sub = rdf[rdf['typ'] == k]
     if not sub.empty:
         s_wert = sub['Wert'].sum()
         s_gv = sub['GV'].sum()
-        with st.expander(f"📦 {k}s (Summe: {s_wert:,.2f} | G/V: {s_gv:+.2f})", expanded=True):
-            # Header mit 7 Spalten
-            h1, h2, h3, h4, h5, h6, h7 = st.columns([2, 1.2, 1.2, 0.8, 0.8, 1, 1.5])
+        with st.expander(f"📦 {k}s (Gesamt: {s_wert:,.2f} | G/V: {s_gv:+.2f})", expanded=True):
+            # Wir brauchen mehr Platz, daher passen wir die Breiten an
+            # c1:Name, c2:Wert/EK, c3:G/V, c4:1H, c5:24H, c6:Menge, c7:Aktion
+            h1, h2, h3, h4, h5, h6, h7 = st.columns([2, 1.8, 1.2, 0.8, 0.8, 1, 1.5])
             h1.caption("NAME")
-            h2.caption(f"WERT ({base_currency})")
+            h2.caption(f"WERT / EK ({base_currency})")
             h3.caption("G/V")
             h4.caption("1H %")
             h5.caption("24H %")
-            h6.caption("MENGE")
+            h6.caption("STÜCK")
             h7.caption("AKTION")
 
             for _, r in sub.iterrows():
-                c1, c2, c3, c4, c5, c6, c7 = st.columns([2, 1.2, 1.2, 0.8, 0.8, 1, 1.5])
+                c1, c2, c3, c4, c5, c6, c7 = st.columns([2, 1.8, 1.2, 0.8, 0.8, 1, 1.5])
                 
-                c1.write(f"**{r['name']}**")
-                c2.write(f"{r['Wert']:,.2f}")
+                # Spalte 1: Name & Ticker
+                c1.markdown(f"**{r['name']}**\n<small>{r['ticker']}</small>", unsafe_allow_html=True)
                 
+                # Spalte 2: Aktueller Wert & Dein Kaufpreis (EK)
+                # Wir berechnen den EK pro Stück in Basiswährung
+                rate = get_fx_rate(r['curr'], base_currency)
+                ek_pro_stk = r['kaufpreis'] * rate
+                c2.markdown(f"**{r['Wert']:,.2f}**\n<small>EK: {ek_pro_stk:,.2f}</small>", unsafe_allow_html=True)
+                
+                # Spalte 3: Gewinn/Verlust
                 gv_col = "green" if r['GV'] >= 0 else "red"
                 c3.markdown(f"<span style='color:{gv_col}; font-weight:bold;'>{r['GV']:+.2f}</span>", unsafe_allow_html=True)
                 
-                # Kursbewegung 1H (Berechnet aus hist)
-                c1h_val = r.get('ch1h', 0)
-                c1h_col = "#00FF00" if c1h_val >= 0 else "#FF4B4B"
-                c4.markdown(f"<span style='color:{c1h_col};'>{c1h_val:+.2f}%</span>", unsafe_allow_html=True)
+                # Spalte 4 & 5: Prozente
+                c4.markdown(f"<span style='color:{'#00FF00' if r.get('ch1h',0)>=0 else '#FF4B4B'};'>{r.get('ch1h',0):+.2f}%</span>", unsafe_allow_html=True)
+                c5.markdown(f"<span style='color:{'#00FF00' if r.get('ch24h',0)>=0 else '#FF4B4B'};'>{r.get('ch24h',0):+.2f}%</span>", unsafe_allow_html=True)
                 
-                # Kursbewegung 24H
-                c24h_val = r.get('ch24h', 0)
-                c24h_col = "#00FF00" if c24h_val >= 0 else "#FF4B4B"
-                c5.markdown(f"<span style='color:{c24h_col};'>{c24h_val:+.2f}%</span>", unsafe_allow_html=True)
-                
+                # Spalte 6: Stückzahl
                 c6.write(f"{r['menge']}")
                 
-                # --- AKTIONEN ---
+                # Spalte 7: AKTIONEN
                 with c7:
-                    col_edit, col_sell, col_del = st.columns(3)
+                    btn_edit, btn_sell, btn_del = st.columns(3)
                     
-                    with col_edit:
-                        if st.button("📝", key=f"ed_btn_{r['orig_idx']}"):
-                            st.info("Nutze die Eingabemaske oben zum Ändern.") # Oder Popover hier einfügen
+                    # 1. BEARBEITEN (📝)
+                    with btn_edit:
+                        with st.popover("📝"):
+                            with st.form(f"edit_form_{r['orig_idx']}"):
+                                st.write(f"Ändere {r['name']}")
+                                new_n = st.text_input("Name", r['name'])
+                                new_m = st.number_input("Stückzahl", value=float(r['menge']), step=0.01, format="%.4f")
+                                new_e = st.number_input("Kaufpreis (EK)", value=float(r['kaufpreis']), step=0.01)
+                                if st.form_submit_button("Speichern"):
+                                    df_save = pd.read_csv(filename)
+                                    df_save.at[r['orig_idx'], 'name'] = new_n
+                                    df_save.at[r['orig_idx'], 'menge'] = new_m
+                                    df_save.at[r['orig_idx'], 'kaufpreis'] = new_e
+                                    df_save.to_csv(filename, index=False)
+                                    st.rerun()
 
-                    with col_sell:
+                    # 2. VERKAUFEN (💰)
+                    with btn_sell:
                         with st.popover("💰"):
-                            st.write(f"Verkauf: {r['name']}")
-                            v_m = st.number_input("Menge", 0.0, float(r['menge']), float(r['menge']), key=f"sell_val_{r['orig_idx']}")
-                            if st.button("Bestätigen", key=f"sell_btn_{r['orig_idx']}"):
-                                df_full = pd.read_csv(filename)
-                                if v_m >= r['menge']:
-                                    df_full = df_full.drop(r['orig_idx'])
+                            st.write("Teilverkauf")
+                            sell_qty = st.number_input("Menge zum Verkaufen", 0.0, float(r['menge']), float(r['menge']), key=f"s_qty_{r['orig_idx']}")
+                            if st.button("Verkauf Bestätigen", key=f"s_btn_{r['orig_idx']}"):
+                                df_temp = pd.read_csv(filename)
+                                if sell_qty >= r['menge']:
+                                    df_temp = df_temp.drop(r['orig_idx'])
                                 else:
-                                    df_full.at[r['orig_idx'], 'menge'] = r['menge'] - v_m
-                                df_full.to_csv(filename, index=False)
+                                    df_temp.at[r['orig_idx'], 'menge'] = r['menge'] - sell_qty
+                                df_temp.to_csv(filename, index=False)
                                 st.rerun()
 
-                    with col_del:
-                        if st.button("🗑️", key=f"del_btn_{r['orig_idx']}"):
-                            df_full = pd.read_csv(filename)
-                            df_full = df_full.drop(r['orig_idx'])
-                            df_full.to_csv(filename, index=False)
+                    # 3. LÖSCHEN (🗑️)
+                    with btn_del:
+                        if st.button("🗑️", key=f"del_final_{r['orig_idx']}"):
+                            df_temp = pd.read_csv(filename)
+                            df_temp = df_temp.drop(r['orig_idx'])
+                            df_temp.to_csv(filename, index=False)
                             st.rerun()
 
             # --- VISUALISIERUNG & STATS ---
