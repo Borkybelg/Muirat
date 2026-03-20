@@ -447,39 +447,33 @@ for k in ["Aktie", "Krypto", "ETF"]:
                             df_temp.to_csv(filename, index=False)
                             st.rerun()
 
-            # --- VISUALISIERUNG & STATS (Oben fixiert) ---
-col_chart, col_stats, col_news = st.columns([1.5, 1, 1])
+            # ... (Ende der Löschen-Button Logik)
+                with btn_del:
+                    if st.button("🗑️", key=f"del_final_{r['orig_idx']}"):
+                        # ... (Code zum Löschen)
+                        st.rerun()
 
-with col_chart:
-    import plotly.express as px
-    # Wir gruppieren nach Typ für das Tortendiagramm
-    c_data = rdf.groupby('typ')['Wert'].sum().reset_index()
-    fig = px.pie(c_data, values='Wert', names='typ', hole=0.5, 
-                 color_discrete_map={'Aktie':'#3498db', 'Krypto':'#f1c40f', 'ETF':'#9b59b6'})
-    fig.update_layout(margin=dict(t=0, b=0, l=0, r=0), height=220, showlegend=True)
-    # WICHTIG: Eindeutiger Key gegen den Duplicate-Fehler
-    st.plotly_chart(fig, use_container_width=True, key=f"donut_main_{base_currency}")
+            # --- DIESER BLOCK WAR FALSCH eingerückt ---
+            # Schiebe alles ab hier nach RECHTS (1x Tab)
+            col_chart, col_stats, col_news = st.columns([1.5, 1, 1])
 
-with col_stats:
-    st.write("🏆 **Top Asset**")
-    top_r = rdf.loc[rdf['GV'].idxmax()]
-    st.success(f"**{top_r['name']}**\n\n{top_r['GV']:+.2f} {base_currency}")
-    
-    st.write("📉 **Flop Asset**")
-    flop_r = rdf.loc[rdf['GV'].idxmin()]
-    st.error(f"**{flop_r['name']}**\n\n{flop_r['GV']:+.2f} {base_currency}")
+            with col_chart:
+                import plotly.express as px
+                # ... (Donut Chart Code)
+                st.plotly_chart(fig, use_container_width=True, key=f"donut_main_{base_currency}")
 
-with col_news:
-    st.write("📰 **News (Heavyweight)**")
-    # News für das größte Asset im Depot
-    main_t = rdf.loc[rdf['Wert'].idxmax()]['ticker']
-    y_news = get_yahoo_news(main_t)
-    if y_news:
-        for n in y_news[:2]:
-            st.markdown(f"• <small>[{n['title'][:45]}...]({n['link']})</small>", unsafe_allow_html=True)
+            with col_stats:
+                # ... (Top/Flop Code)
 
-st.divider() # Trennung zwischen Stats und den Listen
-            # --- ASSET LISTEN (KOMPLETT MIT AKTIONEN) ---
+            with col_news:
+                # ... (News Code)
+
+            st.divider() 
+
+            # --- ASSET LISTEN (Jetzt stimmt die Einrückung wieder) ---
+            for k in ["Aktie", "Krypto", "ETF"]:
+                sub = rdf[rdf['typ'] == k]
+                # ...
             for k in ["Aktie", "Krypto", "ETF"]:
                 sub = rdf[rdf['typ'] == k]
                 if not sub.empty:
