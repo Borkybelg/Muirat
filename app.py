@@ -470,69 +470,36 @@ with t_sig:
                     s_watch.remove(t); pd.DataFrame({"ticker": s_watch}).to_csv(signal_watchlist_file, index=False); st.rerun()
         except: pass
 
-# --- TAB 3: TERMINAL (REPARIERTE VERSION) ---
-with t_multi:
-    # 1. FUNKTION ZUM SPEICHERN (definiert, bevor sie benutzt wird)
-    def save_all_charts():
-        ticker_liste = []
-        for j in range(16):
-            key = f"tm_{j}"
-            # Wir holen uns die Werte direkt aus dem Streamlit-Speicher (Session State)
-            val = st.session_state.get(key, "BTCUSD")
-            ticker_liste.append(val)
-        
-        # Speichern in die Datei
-        pd.DataFrame({"ticker": ticker_liste}).to_csv(chart_config_file, index=False)
-
-    # 2. DATEN LADEN
-    if os.path.exists(chart_config_file):
-        try:
-            saved_t = pd.read_csv(chart_config_file)['ticker'].tolist()
-        except:
-            saved_t = ["BTCUSD"] * 16
-    else:
-        saved_t = ["BTCUSD"] * 16
-
-    # Liste auf 16 auffüllen
-    while len(saved_t) < 16:
-        saved_t.append("BTCUSD")
-    
-    # Timeframe-Mapping
-    tv_tf = {"5m":"5","30m":"30","1h":"60","4h":"240","8h":"480","12h":"720","1d":"D"}.get(tf, "D")
-    
-    t_cols = st.columns(cols_layout)
-    
-    # 3. DIE CHARTS ANZEIGEN
-    for i in range(num_charts):
-        with t_cols[i % cols_layout]:
-            # WICHTIG: 'on_change' sorgt dafür, dass NameError nicht mehr passiert,
-            # da sofort gespeichert wird, wenn du etwas änderst.
-            ti = st.text_input(
+with t_cols[i % cols_layout]:
+            # Wir nutzen 'saved_t[i]' als Initialwert
+            st.text_input(
                 f"Fenster {i+1}", 
                 value=saved_t[i], 
                 key=f"tm_{i}", 
-                on_change=save_all_charts
+                on_change=save_all_charts # Feuert jetzt die globale Funktion
             )
             
-            components.html(f"""
-                <div id="tv_{i}" style="height:450px;"></div>
+            # Das aktuelle Symbol aus dem State holen für das Widget
+            current_symbol = st.session_state[f"tm_{i}"]
+            
+            st.components.v1.html(f"""
+                <div id="tv_{i}" style="height:400px;"></div>
                 <script src="https://s3.tradingview.com/tv.js"></script>
                 <script>
                 new TradingView.widget({{
                   "autosize": true,
-                  "symbol": "{ti}",
+                  "symbol": "{current_symbol}",
                   "interval": "{tv_tf}",
                   "timezone": "Europe/Berlin",
                   "theme": "dark",
                   "style": "1",
                   "locale": "de",
-                  "enable_publishing": false,
+                  "container_id": "tv_{i}",
                   "hide_side_toolbar": false,
-                  "allow_symbol_change": true,
-                  "container_id": "tv_{i}"
+                  "allow_symbol_change": true
                 }});
                 </script>
-            """, height=460)
+            """, height=410)
 
     st.success("✅ Automatisches Speichern aktiv: Tippe einen Ticker und drücke ENTER.")
 
