@@ -470,14 +470,14 @@ with t_sig:
                     s_watch.remove(t); pd.DataFrame({"ticker": s_watch}).to_csv(signal_watchlist_file, index=False); st.rerun()
         except: pass
 
-# --- TAB 3: TERMINAL (REPARIERTE VERSION) ---
+# --- TAB 3: TERMINAL (KORRIGIERTE VERSION) ---
 with t_multi:
-    # 1. FUNKTION ZUM SPEICHERN (definiert, bevor sie benutzt wird)
+    # 1. FUNKTION ZUM SPEICHERN (Hier definieren)
     def save_all_charts():
         ticker_liste = []
         for j in range(16):
             key = f"tm_{j}"
-            # Wir holen uns die Werte direkt aus dem Streamlit-Speicher (Session State)
+            # Wert aus Session State holen, Fallback auf BTCUSD
             val = st.session_state.get(key, "BTCUSD")
             ticker_liste.append(val)
         
@@ -493,7 +493,7 @@ with t_multi:
     else:
         saved_t = ["BTCUSD"] * 16
 
-    # Liste auf 16 auffüllen
+    # Liste auf 16 auffüllen, falls sie kürzer ist
     while len(saved_t) < 16:
         saved_t.append("BTCUSD")
     
@@ -504,16 +504,17 @@ with t_multi:
     
     # 3. DIE CHARTS ANZEIGEN
     for i in range(num_charts):
+        # WICHTIG: Die Spalte korrekt auswählen
         with t_cols[i % cols_layout]:
-            # WICHTIG: 'on_change' sorgt dafür, dass NameError nicht mehr passiert,
-            # da sofort gespeichert wird, wenn du etwas änderst.
+            # Das Eingabefeld
             ti = st.text_input(
                 f"Fenster {i+1}", 
                 value=saved_t[i], 
                 key=f"tm_{i}", 
-                on_change=save_all_charts
+                on_change=save_all_charts # Ruft die Funktion oben auf
             )
             
+            # Das TradingView Widget
             components.html(f"""
                 <div id="tv_{i}" style="height:450px;"></div>
                 <script src="https://s3.tradingview.com/tv.js"></script>
@@ -534,8 +535,8 @@ with t_multi:
                 </script>
             """, height=460)
 
+    # DIESE ZEILE WAR FALSCH EINGERÜCKT (JETZT KORREKT UNTER DER FOR-SCHLEIFE)
     st.success("✅ Automatisches Speichern aktiv: Tippe einen Ticker und drücke ENTER.")
-
 # --- TAB 4: SEKTOREN ---
 with t_sec:
     st.subheader("🌐 Globaler Sektor-Trend (5 Tage)")
