@@ -1,26 +1,23 @@
 ticker,name,menge,kaufpreis,typ
 INJ-USD,Injective,201.77,3.76,Krypto
 FLNC,Fluence Energy,2.0,17.77,Aktie
-AGNC,AGNC Investment,105.18,11.18,ETF
-IE00BM8R0J59.SG,Global X Video Games,23.0,14.08,ETF
-IE00082MOBL9,Vanguard Bond,16.0,17.58,ETF
+AGNC,AGNC Investment,103.18,11.18,ETF
+IE00BM8R0J59.SG,
+Global X NASDAQ 100 Covered Call UCITS ETF (Dist),23.0,14.08,ETF
+IE00082MOBL9,Global X European Superdividend UCITS ETF,16.0,17.58,ETF
 JGPI.DE,JPM Glbl Eq Prem Inc,24.0,23.701,ETF
 SDIV.MI,Global X SuperDiv,20.452,9.018,ETF
 QYLDM.XD,Global X Nasdaq100,11.981,14.188,ETF
-ALGO-USD,Algorand,960.0,0.083628,Krypto
 AAPL,Apple,0.1268,271.56,Aktie
 LYFT,Lyft,10.0,14.27,Aktie
 RNKA.SG,Rheinmetall,20.0,0.917,Aktie
-SBX.MU,Starbucks,2.0,3.19,Aktie
+SBX.MU,SynBiotec,2.0,3.19,Aktie
 U6Z.DU,Unity Software,6.0,16.8,Aktie
-ENS-USD,Ethereum Name Service,55.044,5.971,Krypto
 2018.HK,AAC Tech,61.0,36.98,Aktie
 0992.HK,Lenovo Group,246.0,10.01,Aktie
 0285.HK,BYD Electronic,48.0,35.48,Aktie
-W8V.MU,Xiaomi,202.0,0.49,Aktie
 AGNC,AGNC Investment,2.0,11.18,ETF
 UDIV.DE,Global X US Div,19.709,9.08,Aktie
-XPEV,XPeng Inc,5.427,16.37,Aktie
 0336.HK,Huabao Intl,102.0,4.06,Aktie
 UNVR.JK,Unilever Indonesia,461.0,2726.09,Aktie
 0763.HK,ZTE Corp,56.0,28.42,Aktie
