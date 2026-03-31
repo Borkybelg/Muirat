@@ -251,7 +251,7 @@ st.subheader("📊 Global Market Watch")
 m_tickers = {
     "DAX": "^GDAXI", "S&P 500": "^GSPC", "Nasdaq": "^NDX", "Dow Jones": "^DJI",
     "SDAX": "^SDAXI",  "MDAX": "^MDAXI", "TecDAX": "^TECDAX", "Russell 2k": "^RUT", 
-    "Nikkei 225": "^N225", "China 50": "XIN9.FGI", "Kospi": "KOSPI-3.KS","BTC-USD": "BTC-USD", 
+    "Nikkei 225": "^N225", "China 50": "FXI", "Kospi": "KOSPI-3.KS","BTC-USD": "BTC-USD", 
     "ETH-USD": "ETH-USD", "ETH-EUR": "ETH-EUR", "Gold": "GC=F", "Silber": "SI=F", 
     "Öl": "BZ=F", "VIX": "^VIX", "EUR/USD": "EURUSD=X", "DXY": "DX-Y.NYB", "EUR/TRY": "EURTRY=X"
 }
