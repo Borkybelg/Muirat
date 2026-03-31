@@ -247,21 +247,39 @@ if not st.session_state["password_correct"]:
     st.stop()
 
 st.subheader("📊 Global Market Watch")
+
 m_tickers = {
     "DAX": "^GDAXI", "S&P 500": "^GSPC", "Nasdaq": "^NDX", "Dow Jones": "^DJI",
     "SDAX": "^SDAXI",  "MDAX": "^MDAXI", "TecDAX": "^TECDAX", "Russell 2k": "^RUT", 
-    "Nikkei 225": "^N225", "China 50": "XIN9.FGI", "Kospi": "KOSPI-3.KS","BTC-USD": "BTC-USD", "ETH-USD": "ETH-USD", "ETH-EUR": "ETH-EUR", 
-    "Gold": "GC=F", "Silber": "SI=F", "Öl": "BZ=F", "VIX": "^VIX", "EUR/USD": "EURUSD=X", "DXY": "DX-Y.NYB", "EUR/TRY": "EURTRY=X"
+    "Nikkei 225": "^N225", "China 50": "XIN9.FGI", "Kospi": "KOSPI-3.KS","BTC-USD": "BTC-USD", 
+    "ETH-USD": "ETH-USD", "ETH-EUR": "ETH-EUR", "Gold": "GC=F", "Silber": "SI=F", 
+    "Öl": "BZ=F", "VIX": "^VIX", "EUR/USD": "EURUSD=X", "DXY": "DX-Y.NYB", "EUR/TRY": "EURTRY=X"
 }
 
 m_cols = st.columns(7)
-for i, (n, s) in enumerate(m_tickers.items()):
-    try:
-        val = yf.Ticker(s).fast_info.last_price
-        m_cols[i % 7].metric(n, f"{val:,.2f}")
-    except: 
-        m_cols[i % 7].metric(n, "Err")
 
+for i, (name, symbol) in enumerate(m_tickers.items()):
+    try:
+        ticker = yf.Ticker(symbol)
+        info = ticker.fast_info
+        
+        current_price = info.last_price
+        previous_close = info.previous_close
+        
+        # Berechnung der prozentualen Änderung
+        if previous_close:
+            change_pct = ((current_price - previous_close) / previous_close) * 100
+            delta_str = f"{change_pct:+.2f}%"
+        else:
+            delta_str = None
+
+        m_cols[i % 7].metric(
+            label=name, 
+            value=f"{current_price:,.2f}", 
+            delta=delta_str
+        )
+    except Exception:
+        m_cols[i % 7].metric(name, "Err", delta=None)
 st.divider()
 
 t_port, t_sig, t_multi, t_sec = st.tabs(["💰 PORTFOLIO", "🚦 SIGNAL MONITOR", "🖼️ TERMINAL", "📈 SEKTOREN"])
