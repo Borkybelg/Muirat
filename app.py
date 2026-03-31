@@ -251,10 +251,10 @@ m_tickers = {
     "DAX": "^GDAXI", "S&P 500": "^GSPC", "Nasdaq": "^NDX", "Dow Jones": "^DJI",
     "SDAX": "^SDAXI",  "MDAX": "^MDAXI", "TecDAX": "^TECDAX", "Russell 2k": "^RUT", 
     "Nikkei 225": "^N225", "China 50": "XIN9.FGI", "BTC-USD": "BTC-USD", "ETH-USD": "ETH-USD", "ETH-EUR": "ETH-EUR", 
-    "Gold": "GC=F", "Silber": "SI=F", "Öl": "BZ=F", "VIX": "^VIX", "EUR/TRY": "EURTRY=X"
+    "Gold": "GC=F", "Silber": "SI=F", "Öl": "BZ=F", "VIX": "^VIX", "EUR/USD": "^EURUSD=X", "EUR/TRY": "EURTRY=X"
 }
 
-m_cols = st.columns(6)
+m_cols = st.columns(7)
 for i, (n, s) in enumerate(m_tickers.items()):
     try:
         val = yf.Ticker(s).fast_info.last_price
