@@ -288,13 +288,13 @@ if not st.session_state["password_correct"]:
 st.subheader("📊 Global Market Watch")
 
 m_tickers = {
-    "DAX": "^GDAXI", "S&P 500": "^GSPC", "Nasdaq": "^NDX", "Dow Jones": "^DJI",
+    "DAX": "^GDAXI", "S&P 500": "^GSPC", "Nasdaq": "^NDX", "Dow Jones": "^DJI", "Kospi": "KOSPI-3.KS" ,
     "SDAX": "^SDAXI",  "MDAX": "^MDAXI", "TecDAX": "^TECDAX", "Russell 2k": "^RUT", 
     "Nikkei 225": "^N225", "China 50": "XIN9.FGI", "BTC-USD": "BTC-USD", "ETH-USD": "ETH-USD", "ETH-EUR": "ETH-EUR", 
     "Gold": "GC=F", "Silber": "SI=F", "Öl": "BZ=F", "VIX": "^VIX", "EUR/TRY": "EURTRY=X"
 }
 
-m_cols = st.columns(6)
+m_cols = st.columns(7)
 
 for i, (n, s) in enumerate(m_tickers.items()):
     try:
@@ -311,13 +311,13 @@ for i, (n, s) in enumerate(m_tickers.items()):
         else:
             delta_str = None
 
-        m_cols[i % 6].metric(
+        m_cols[i % 7].metric(
             label=n, 
             value=f"{current_price:,.2f}", 
             delta=delta_str
         )
     except: 
-        m_cols[i % 6].metric(n, "Err")
+        m_cols[i % 7].metric(n, "Err")
 
 t_port, t_sig, t_multi, t_sec = st.tabs(["💰 PORTFOLIO", "🚦 SIGNAL MONITOR", "🖼️ TERMINAL", "📈 SEKTOREN"])
 
