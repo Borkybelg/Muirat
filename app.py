@@ -515,49 +515,7 @@ with t_sig:
     gain = delta.where(delta > 0, 0)
     loss = -delta.where(delta < 0, 0)
     
-    # Wilder's Smoothing: alpha = 1/Period (hier 14)
-    # Entspricht einer EWM mit span = 2 * period - 1
-    avg_gain = gain.ewm(alpha=1/14, min_periods=14, adjust=False).mean()
-    avg_loss = loss.ewm(alpha=1/14, min_periods=14, adjust=False).mean()
-    
-    rs = avg_gain / (avg_loss + 1e-9)
-    rsi_series = 100 - (100 / (1 + rs))
-    
-    # Letzten Wert nehmen
-    last_rsi = rsi_series.iloc[-1]
-    
-    # EMA 20 für Trend
-    ema20 = df['Close'].ewm(span=20, adjust=False).mean()
-    last_ema = ema20.iloc[-1]
-    last_p = df['Close'].iloc[-1]
-    
-    # Restliche Logik (CVD etc.)
-    vol_delta = (df['Close'] - df['Open']) / (df['High'] - df['Low'] + 1e-9) * df['Volume']
-    cvd_val = vol_delta.rolling(window=20).sum().iloc[-1]
-    
-    # Trend-Check
-    if last_p > last_ema and last_rsi < 70: trend = "LONG 🟢"
-    elif last_p < last_ema and last_rsi > 30: trend = "SHORT 🔴"
-    else: trend = "WAIT 🟡"
-    
-    return {
-        "rsi": last_rsi, 
-        "ema20": last_ema, 
-        "trend": trend, 
-        "cvd": cvd_val, 
-        "sentiment": "BULLISH 🚀" if last_rsi > 50 else "BEARISH 📉"
-    }
-                
-                color = "green" if "LONG" in sig['trend'] else "red" if "SHORT" in sig['trend'] else "gray"
-                c5.markdown(f"<div style='background-color:{color}; color:white; padding:5px; text-align:center; border-radius:5px;'>{sig['trend']}</div>", unsafe_allow_html=True)
-                
-                # LÖSCHEN-Button
-                if c6.button("🗑️", key=f"ds_{t}"):
-                    s_watch.remove(t)
-                    pd.DataFrame({"ticker": s_watch}).to_csv(signal_watchlist_file, index=False)
-                    st.rerun()
-        except Exception as e:
-            st.error(f"Fehler bei {t}: {e}")
+ 
 
 # --- TAB 3: TERMINAL (KORRIGIERTE VERSION) ---
 with t_multi:
