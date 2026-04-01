@@ -496,7 +496,7 @@ with t_port:
     if up: 
         pd.read_csv(up).to_csv(filename, index=False)
         st.rerun()
-# --- TAB 2: SIGNAL MONITOR ---
+
 # --- TAB 2: SIGNAL MONITOR ---
 with t_sig:
     # 1. Watchlist laden oder erstellen
@@ -539,17 +539,7 @@ with t_sig:
                 c3.write(f"{sig['sentiment']}")
                 c4.write(f"CVD: {'📈' if sig['cvd'] > 0 else '📉'}")
 
-                def calculate_signals(df):
-    if len(df) < 30: 
-        return {"rsi": 50, "ema20": 0, "trend": "Neutral", "cvd": 0, "oi": 0, "sentiment": "Neutral"}
-    
-    # RSI Berechnung nach TradingView Standard (Wilder's/EMA)
-    delta = df['Close'].diff()
-    
-    # Gewinne und Verluste trennen
-    gain = delta.where(delta > 0, 0)
-    loss = -delta.where(delta < 0, 0)
-    
+
  
 
 # --- TAB 3: TERMINAL (KORRIGIERTE VERSION) ---
