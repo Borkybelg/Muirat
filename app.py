@@ -300,24 +300,30 @@ for i, (n, s) in enumerate(m_tickers.items()):
     try:
         ticker = yf.Ticker(s)
         info = ticker.fast_info
+        cp = info.last_price
+        pc = info.previous_close
         
-        current_price = info.last_price
-        prev_close = info.previous_close
+        # --- NACHKOMMASTELLEN-LOGIK ---
+        # Wenn es eine Währung (=X) oder der Dollar Index (DX) ist -> 4 Stellen
+        if "=X" in s or "DX" in s:
+            precision = ".4f"
+        else:
+            precision = ".2f"
         
         # Prozentuale Änderung berechnen
-        if prev_close and current_price:
-            change_pct = ((current_price - prev_close) / prev_close) * 100
-            delta_str = f"{change_pct:+.2f}%"
-        else:
-            delta_str = None
+        delta_val = None
+        if pc and cp:
+            pct = ((cp - pc) / pc) * 100
+            delta_val = f"{pct:+.2f}%"
 
-        m_cols[i % 7].metric(
+        # Anzeige mit der gewählten Präzision
+        m_cols[i % 6].metric(
             label=n, 
-            value=f"{current_price:,.2f}", 
-            delta=delta_str
+            value=f"{cp:{precision}}", # Hier wird dynamisch .2f oder .4f genutzt
+            delta=delta_val
         )
     except: 
-        m_cols[i % 7].metric(n, "Err")
+        m_cols[i % 6].metric(n, "Err")
 
 t_port, t_sig, t_multi, t_sec = st.tabs(["💰 PORTFOLIO", "🚦 SIGNAL MONITOR", "🖼️ TERMINAL", "📈 SEKTOREN"])
 
