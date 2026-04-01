@@ -286,6 +286,7 @@ if not st.session_state["password_correct"]:
     st.stop()
 
 st.subheader("📊 Global Market Watch")
+
 m_tickers = {
     "DAX": "^GDAXI", "S&P 500": "^GSPC", "Nasdaq": "^NDX", "Dow Jones": "^DJI",
     "SDAX": "^SDAXI",  "MDAX": "^MDAXI", "TecDAX": "^TECDAX", "Russell 2k": "^RUT", 
@@ -294,14 +295,29 @@ m_tickers = {
 }
 
 m_cols = st.columns(6)
+
 for i, (n, s) in enumerate(m_tickers.items()):
     try:
-        val = yf.Ticker(s).fast_info.last_price
-        m_cols[i % 6].metric(n, f"{val:,.2f}")
+        ticker = yf.Ticker(s)
+        info = ticker.fast_info
+        
+        current_price = info.last_price
+        prev_close = info.previous_close
+        
+        # Prozentuale Änderung berechnen
+        if prev_close and current_price:
+            change_pct = ((current_price - prev_close) / prev_close) * 100
+            delta_str = f"{change_pct:+.2f}%"
+        else:
+            delta_str = None
+
+        m_cols[i % 6].metric(
+            label=n, 
+            value=f"{current_price:,.2f}", 
+            delta=delta_str
+        )
     except: 
         m_cols[i % 6].metric(n, "Err")
-
-st.divider()
 
 t_port, t_sig, t_multi, t_sec = st.tabs(["💰 PORTFOLIO", "🚦 SIGNAL MONITOR", "🖼️ TERMINAL", "📈 SEKTOREN"])
 
