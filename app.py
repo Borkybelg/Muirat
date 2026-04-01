@@ -162,47 +162,54 @@ signal_watchlist_file = "signals_watchlist.csv"
 
 # --- 1. TECHNISCHE FUNKTIONEN (RSI, EMA, FX) ---
 def calculate_signals(df):
-    if len(df) < 50: 
-        return {"rsi": 50, "ema20": 0, "trend": "Neutral", "cvd": 0, "oi": 0, "sentiment": "Neutral"}
+    if len(df) < 30: 
+        return {"rsi": 50, "stoch_k": 50, "stoch_d": 50, "trend": "WAIT 🟡", "sentiment": "Neutral", "cvd": 0}
     
-    # RSI Berechnung
+    # --- RSI BERECHNUNG ---
     delta = df['Close'].diff()
     gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
     loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
     rs = gain / (loss + 1e-9)
-    rsi_val = 100 - (100 / (1 + rs))
+    rsi_series = 100 - (100 / (1 + rs))
+    last_rsi = rsi_series.iloc[-1]
+
+    # --- STOCHASTIK BERECHNUNG (90/10) ---
+    low_14 = df['Low'].rolling(window=14).min()
+    high_14 = df['High'].rolling(window=14).max()
+    df['%K'] = 100 * ((df['Close'] - low_14) / (high_14 - low_14 + 1e-9))
+    df['%D'] = df['%K'].rolling(window=3).mean()
     
-    # EMA 20
+    last_k, last_d = df['%K'].iloc[-1], df['%D'].iloc[-1]
+    prev_k, prev_d = df['%K'].iloc[-2], df['%D'].iloc[-2]
+
+    # --- EMA & VOLUMEN (CVD) ---
     ema20 = df['Close'].ewm(span=20, adjust=False).mean()
-    
-    # CVD & OI Proxy (Volumen-Analyse)
+    last_ema = ema20.iloc[-1]
+    last_p = df['Close'].iloc[-1]
     vol_delta = (df['Close'] - df['Open']) / (df['High'] - df['Low'] + 1e-9) * df['Volume']
     cvd_val = vol_delta.rolling(window=20).sum().iloc[-1]
-    oi_proxy = (df['Close'] * df['Volume']).rolling(window=20).mean().iloc[-1]
-    
-    last_p = df['Close'].iloc[-1]
-    last_rsi = rsi_val.iloc[-1]
-    last_ema = ema20.iloc[-1]
-    
-    # Sentiment & Trend Logik
-    bull_score = 0
-    if last_p > last_ema: bull_score += 1
-    if last_rsi < 60: bull_score += 1
-    if cvd_val > 0: bull_score += 1
-    
-    sentiment = "BULLISH 🚀" if bull_score >= 2 else "BEARISH 📉"
-    
-    if last_p > last_ema and last_rsi < 70: trend = "LONG 🟢"
-    elif last_p < last_ema and last_rsi > 30: trend = "SHORT 🔴"
-    else: trend = "WAIT 🟡"
-    
+
+    # --- KOMBINIERTE LOGIK ---
+    trend = "WAIT 🟡"
+    # LONG: Stochastik Kreuzung unten (<10) + RSI niedrig
+    if last_k > last_d and prev_k <= prev_d and last_k <= 10:
+        trend = "STRONG LONG 🚀" if last_rsi < 40 else "LONG 🟢"
+    # SHORT: Stochastik Kreuzung oben (>90) + RSI hoch
+    elif last_k < last_d and prev_k >= prev_d and last_k >= 90:
+        trend = "STRONG SHORT 💀" if last_rsi > 60 else "SHORT 🔴"
+    # Fallback auf EMA Trend, wenn keine Stoch-Kreuzung vorliegt
+    elif last_p > last_ema:
+        trend = "TREND UP 📈"
+    elif last_p < last_ema:
+        trend = "TREND DOWN 📉"
+
     return {
         "rsi": last_rsi, 
-        "ema20": last_ema, 
+        "stoch_k": last_k,
+        "stoch_d": last_d,
         "trend": trend, 
         "cvd": cvd_val, 
-        "oi": oi_proxy, 
-        "sentiment": sentiment
+        "sentiment": "BULLISH 🚀" if last_rsi > 50 else "BEARISH 📉"
     }
 
 def get_sector_performance():
