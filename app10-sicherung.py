@@ -8,6 +8,36 @@ import streamlit as st
 import requests
 import feedparser # Falls Fehlermeldung: im Terminal 'pip install feedparser' eingeben
 
+def calculate_signals(df):
+    # WICHTIG: Wir brauchen 200 Datenpunkte für den SMA
+    if len(df) < 200:
+        return {"trend": "Daten laden...", "color": "gray"}
+
+    # SMA 200 berechnen
+    df['SMA200'] = df['Close'].rolling(window=200).mean()
+    last_price = df['Close'].iloc[-1]
+    last_sma200 = df['SMA200'].iloc[-1]
+    
+    # Abstand zum SMA 200 in Prozent
+    diff_percent = ((last_price - last_sma200) / last_sma200) * 100
+
+    # ... (hier bleibt dein RSI & Stochastik Code gleich) ...
+
+    # Trend-Check
+    if last_price > last_sma200:
+        # BULLEN-MARKT: Nur Long Signale bei Stochastik < 15
+        if last_k < last_d and prev_k <= prev_d and last_k <= 15:
+            res = {"trend": "STRONG LONG 🚀", "color": "green"}
+        else:
+            res = {"trend": f"BULL ({diff_percent:+.1f}%)", "color": "#1E5631"}
+    else:
+        # BÄREN-MARKT: Nur Short Signale bei Stochastik > 85
+        if last_k > last_d and prev_k >= prev_d and last_k >= 85:
+            res = {"trend": "STRONG SHORT 💀", "color": "red"}
+        else:
+            res = {"trend": f"BEAR ({diff_percent:+.1f}%)", "color": "#7C0A02"}
+            
+    return res
 def calculate_stochastic(df, k_window=14, d_window=3, overbought=90, oversold=10):
     if len(df) < k_window + d_window:
         return {"k": 50, "d": 50, "signal": "WAIT 🟡"}
@@ -76,6 +106,7 @@ def calculate_signals(df):
         "cvd": cvd_val, 
         "sentiment": "BULLISH 🚀" if last_rsi > 50 else "BEARISH 📉"
     }
+
 def get_free_crypto_news():
     # Wir mischen die Feeds von CoinTelegraph und CoinDesk
     feeds = [
