@@ -503,6 +503,50 @@ with t_sig:
                 c2.write(f"RSI: {sig['rsi']:.1f}")
                 c3.write(f"{sig['sentiment']}")
                 c4.write(f"CVD: {'📈' if sig['cvd'] > 0 else '📉'}")
+
+                def calculate_signals(df):
+    if len(df) < 30: 
+        return {"rsi": 50, "ema20": 0, "trend": "Neutral", "cvd": 0, "oi": 0, "sentiment": "Neutral"}
+    
+    # RSI Berechnung nach TradingView Standard (Wilder's/EMA)
+    delta = df['Close'].diff()
+    
+    # Gewinne und Verluste trennen
+    gain = delta.where(delta > 0, 0)
+    loss = -delta.where(delta < 0, 0)
+    
+    # Wilder's Smoothing: alpha = 1/Period (hier 14)
+    # Entspricht einer EWM mit span = 2 * period - 1
+    avg_gain = gain.ewm(alpha=1/14, min_periods=14, adjust=False).mean()
+    avg_loss = loss.ewm(alpha=1/14, min_periods=14, adjust=False).mean()
+    
+    rs = avg_gain / (avg_loss + 1e-9)
+    rsi_series = 100 - (100 / (1 + rs))
+    
+    # Letzten Wert nehmen
+    last_rsi = rsi_series.iloc[-1]
+    
+    # EMA 20 für Trend
+    ema20 = df['Close'].ewm(span=20, adjust=False).mean()
+    last_ema = ema20.iloc[-1]
+    last_p = df['Close'].iloc[-1]
+    
+    # Restliche Logik (CVD etc.)
+    vol_delta = (df['Close'] - df['Open']) / (df['High'] - df['Low'] + 1e-9) * df['Volume']
+    cvd_val = vol_delta.rolling(window=20).sum().iloc[-1]
+    
+    # Trend-Check
+    if last_p > last_ema and last_rsi < 70: trend = "LONG 🟢"
+    elif last_p < last_ema and last_rsi > 30: trend = "SHORT 🔴"
+    else: trend = "WAIT 🟡"
+    
+    return {
+        "rsi": last_rsi, 
+        "ema20": last_ema, 
+        "trend": trend, 
+        "cvd": cvd_val, 
+        "sentiment": "BULLISH 🚀" if last_rsi > 50 else "BEARISH 📉"
+    }
                 
                 color = "green" if "LONG" in sig['trend'] else "red" if "SHORT" in sig['trend'] else "gray"
                 c5.markdown(f"<div style='background-color:{color}; color:white; padding:5px; text-align:center; border-radius:5px;'>{sig['trend']}</div>", unsafe_allow_html=True)
