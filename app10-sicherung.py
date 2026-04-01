@@ -162,54 +162,60 @@ signal_watchlist_file = "signals_watchlist.csv"
 
 # --- 1. TECHNISCHE FUNKTIONEN (RSI, EMA, FX) ---
 def calculate_signals(df):
-    if len(df) < 30: 
-        return {"rsi": 50, "stoch_k": 50, "stoch_d": 50, "trend": "WAIT 🟡", "sentiment": "Neutral", "cvd": 0}
+    # Wir brauchen mindestens 200 Kerzen für den SMA 200!
+    if len(df) < 200: 
+        return {"rsi": 50, "stoch_k": 50, "trend": "Lade Daten... (200+)", "color": "gray", "sentiment": "Neutral"}
     
-    # --- RSI BERECHNUNG ---
+    # --- INDIKATOREN ---
+    # SMA 200 (Der Trend-Filter)
+    sma200 = df['Close'].rolling(window=200).mean()
+    last_sma200 = sma200.iloc[-1]
+    last_p = df['Close'].iloc[-1]
+    
+    # RSI
     delta = df['Close'].diff()
     gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
     loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
-    rs = gain / (loss + 1e-9)
-    rsi_series = 100 - (100 / (1 + rs))
-    last_rsi = rsi_series.iloc[-1]
+    rsi_val = 100 - (100 / (1 + (gain / (loss + 1e-9))))
+    last_rsi = rsi_val.iloc[-1]
 
-    # --- STOCHASTIK BERECHNUNG (90/10) ---
+    # Stochastik 90/10
     low_14 = df['Low'].rolling(window=14).min()
     high_14 = df['High'].rolling(window=14).max()
     df['%K'] = 100 * ((df['Close'] - low_14) / (high_14 - low_14 + 1e-9))
     df['%D'] = df['%K'].rolling(window=3).mean()
-    
     last_k, last_d = df['%K'].iloc[-1], df['%D'].iloc[-1]
     prev_k, prev_d = df['%K'].iloc[-2], df['%D'].iloc[-2]
 
-    # --- EMA & VOLUMEN (CVD) ---
-    ema20 = df['Close'].ewm(span=20, adjust=False).mean()
-    last_ema = ema20.iloc[-1]
-    last_p = df['Close'].iloc[-1]
-    vol_delta = (df['Close'] - df['Open']) / (df['High'] - df['Low'] + 1e-9) * df['Volume']
-    cvd_val = vol_delta.rolling(window=20).sum().iloc[-1]
+    # --- FILTER LOGIK MIT SMA 200 ---
+    trend_signal = "WAIT 🟡"
+    color = "gray"
+    
+    # BULLISH: Preis > SMA 200 -> Nur Long erlaubt
+    if last_p > last_sma200:
+        if last_k > last_d and prev_k <= prev_d and last_k <= 15: # Puffer auf 15 erhöht
+            trend_signal = "STRONG BUY 🚀"
+            color = "green"
+        else:
+            trend_signal = "BULL-TREND 📈"
+            color = "#1E5631" # Dunkelgrün
 
-    # --- KOMBINIERTE LOGIK ---
-    trend = "WAIT 🟡"
-    # LONG: Stochastik Kreuzung unten (<10) + RSI niedrig
-    if last_k > last_d and prev_k <= prev_d and last_k <= 10:
-        trend = "STRONG LONG 🚀" if last_rsi < 40 else "LONG 🟢"
-    # SHORT: Stochastik Kreuzung oben (>90) + RSI hoch
-    elif last_k < last_d and prev_k >= prev_d and last_k >= 90:
-        trend = "STRONG SHORT 💀" if last_rsi > 60 else "SHORT 🔴"
-    # Fallback auf EMA Trend, wenn keine Stoch-Kreuzung vorliegt
-    elif last_p > last_ema:
-        trend = "TREND UP 📈"
-    elif last_p < last_ema:
-        trend = "TREND DOWN 📉"
+    # BEARISH: Preis < SMA 200 -> Nur Short erlaubt
+    elif last_p < last_sma200:
+        if last_k < last_d and prev_k >= prev_d and last_k >= 85: # Puffer auf 85
+            trend_signal = "STRONG SELL 💀"
+            color = "red"
+        else:
+            trend_signal = "BEAR-TREND 📉"
+            color = "#7C0A02" # Dunkelrot
 
     return {
         "rsi": last_rsi, 
         "stoch_k": last_k,
         "stoch_d": last_d,
-        "trend": trend, 
-        "cvd": cvd_val, 
-        "sentiment": "BULLISH 🚀" if last_rsi > 50 else "BEARISH 📉"
+        "trend": trend_signal,
+        "color": color,
+        "sentiment": "BULLISH" if last_p > last_sma200 else "BEARISH"
     }
 
 def get_sector_performance():
