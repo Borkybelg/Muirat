@@ -286,22 +286,44 @@ if not st.session_state["password_correct"]:
     st.stop()
 
 st.subheader("📊 Global Market Watch")
+
 m_tickers = {
-    "DAX": "^GDAXI", "S&P 500": "^GSPC", "Nasdaq": "^NDX", "Dow Jones": "^DJI",
+    "DAX": "^GDAXI", "S&P 500": "^GSPC", "Nasdaq": "^NDX", "Dow Jones": "^DJI", "Kospi": "KOSPI-3.KS" ,
     "SDAX": "^SDAXI",  "MDAX": "^MDAXI", "TecDAX": "^TECDAX", "Russell 2k": "^RUT", 
-    "Nikkei 225": "^N225", "China 50": "XIN9.FGI", "BTC-USD": "BTC-USD", "ETH-USD": "ETH-USD", "ETH-EUR": "ETH-EUR", 
-    "Gold": "GC=F", "Silber": "SI=F", "Öl": "BZ=F", "VIX": "^VIX", "EUR/TRY": "EURTRY=X"
+    "Nikkei 225": "^N225",  "CSI300 ": "000300.SS", "BTC-USD": "BTC-USD", "ETH-USD": "ETH-USD", "ETH-EUR": "ETH-EUR", 
+    "Gold": "GC=F", "Silber": "SI=F", "BRENT": "BZ=F", "VIX": "^VIX", "EUR/TRY": "EURTRY=X", "EUR/USD": "EURUSD=X", "DXY": "DX-Y.NYB",
 }
 
-m_cols = st.columns(6)
+m_cols = st.columns(8)
+
 for i, (n, s) in enumerate(m_tickers.items()):
     try:
-        val = yf.Ticker(s).fast_info.last_price
-        m_cols[i % 6].metric(n, f"{val:,.2f}")
-    except: 
-        m_cols[i % 6].metric(n, "Err")
+        ticker = yf.Ticker(s)
+        info = ticker.fast_info
+        cp = info.last_price
+        pc = info.previous_close
+        
+        # --- NACHKOMMASTELLEN-LOGIK ---
+        # Wenn es eine Währung (=X) oder der Dollar Index (DX) ist -> 4 Stellen
+        if "=X" in s or "DX" in s:
+            precision = ".4f"
+        else:
+            precision = ".2f"
+        
+        # Prozentuale Änderung berechnen
+        delta_val = None
+        if pc and cp:
+            pct = ((cp - pc) / pc) * 100
+            delta_val = f"{pct:+.2f}%"
 
-st.divider()
+        # Anzeige mit der gewählten Präzision
+        m_cols[i % 8].metric(
+            label=n, 
+            value=f"{cp:{precision}}", # Hier wird dynamisch .2f oder .4f genutzt
+            delta=delta_val
+        )
+    except: 
+        m_cols[i % 8].metric(n, "Err")
 
 t_port, t_sig, t_multi, t_sec = st.tabs(["💰 PORTFOLIO", "🚦 SIGNAL MONITOR", "🖼️ TERMINAL", "📈 SEKTOREN"])
 
