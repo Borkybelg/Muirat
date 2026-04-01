@@ -8,7 +8,36 @@ import streamlit as st
 import requests
 import feedparser # Falls Fehlermeldung: im Terminal 'pip install feedparser' eingeben
 
+def calculate_stochastic(df, k_window=14, d_window=3, overbought=90, oversold=10):
+    if len(df) < k_window + d_window:
+        return {"k": 50, "d": 50, "signal": "WAIT 🟡"}
 
+    # Höchst- und Tiefststände der letzten n Tage
+    low_min = df['Low'].rolling(window=k_window).min()
+    high_max = df['High'].rolling(window=k_window).max()
+
+    # %K Berechnung
+    df['%K'] = 100 * ((df['Close'] - low_min) / (high_max - low_min + 1e-9))
+    # %D Berechnung (Durchschnitt von %K)
+    df['%D'] = df['%K'].rolling(window=d_window).mean()
+
+    last_k = df['%K'].iloc[-1]
+    last_d = df['%D'].iloc[-1]
+    prev_k = df['%K'].iloc[-2]
+    prev_d = df['%D'].iloc[-2]
+
+    # Signal-Logik für 90/10
+    signal = "WAIT 🟡"
+    
+    # LONG: Kreuzung von unten nach oben IM überverkauften Bereich (< 10)
+    if last_k > last_d and prev_k <= prev_d and last_k <= oversold:
+        signal = "STRONG LONG 🚀"
+    
+    # SHORT: Kreuzung von oben nach unten IM überkauften Bereich (> 90)
+    elif last_k < last_d and prev_k >= prev_d and last_k >= overbought:
+        signal = "STRONG SHORT 💀"
+        
+    return {"k": last_k, "d": last_d, "signal": signal}
 def calculate_signals(df):
     # Alles hier drunter muss eingerückt sein!
     if len(df) < 30: 
