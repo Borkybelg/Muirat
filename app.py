@@ -542,8 +542,7 @@ with t_sig:
 
  
 
-# --- TAB 3: TERMINAL (KORRIGIERTE VERSION) ---
-with t_multi:
+
     # 1. FUNKTION ZUM SPEICHERN (Hier definieren)
     def save_all_charts():
         ticker_liste = []
