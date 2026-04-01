@@ -294,7 +294,7 @@ m_tickers = {
     "Gold": "GC=F", "Silber": "SI=F", "BRENT": "BZ=F", "VIX": "^VIX", "EUR/TRY": "EURTRY=X", "EUR/USD": "EURUSD=X", "DXY": "DX-Y.NYB",
 }
 
-m_cols = st.columns(7)
+m_cols = st.columns(8)
 
 for i, (n, s) in enumerate(m_tickers.items()):
     try:
@@ -317,13 +317,13 @@ for i, (n, s) in enumerate(m_tickers.items()):
             delta_val = f"{pct:+.2f}%"
 
         # Anzeige mit der gewählten Präzision
-        m_cols[i % 6].metric(
+        m_cols[i % 8].metric(
             label=n, 
             value=f"{cp:{precision}}", # Hier wird dynamisch .2f oder .4f genutzt
             delta=delta_val
         )
     except: 
-        m_cols[i % 6].metric(n, "Err")
+        m_cols[i % 8].metric(n, "Err")
 
 t_port, t_sig, t_multi, t_sec = st.tabs(["💰 PORTFOLIO", "🚦 SIGNAL MONITOR", "🖼️ TERMINAL", "📈 SEKTOREN"])
 
