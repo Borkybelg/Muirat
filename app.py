@@ -462,31 +462,58 @@ with t_port:
         pd.read_csv(up).to_csv(filename, index=False)
         st.rerun()
 # --- TAB 2: SIGNAL MONITOR ---
+# --- TAB 2: SIGNAL MONITOR ---
 with t_sig:
-    s_watch = pd.read_csv(signal_watchlist_file)['ticker'].tolist() if os.path.exists(signal_watchlist_file) else ["^GDAXI", "BTC-USD"]
-    with st.form("s_add"):
-        ns = st.text_input("Ticker zur Watchlist speichern:")
-        if st.form_submit_button("Add"):
-            if ns and ns.upper() not in s_watch:
-                s_watch.append(ns.upper()); pd.DataFrame({"ticker": s_watch}).to_csv(signal_watchlist_file, index=False); st.rerun()
+    # 1. Watchlist laden oder erstellen
+    if not os.path.exists(signal_watchlist_file):
+        pd.DataFrame({"ticker": ["^GDAXI", "BTC-USD"]}).to_csv(signal_watchlist_file, index=False)
     
+    s_watch_df = pd.read_csv(signal_watchlist_file)
+    s_watch = s_watch_df['ticker'].tolist()
+
+    # 2. Formular zum Hinzufügen
+    with st.form("s_add", clear_on_submit=True):
+        ns = st.text_input("Ticker zur Watchlist hinzufügen (z.B. TSLA):")
+        if st.form_submit_button("Hinzufügen"):
+            if ns:
+                ns_upper = ns.upper().strip()
+                if ns_upper not in s_watch:
+                    s_watch.append(ns_upper)
+                    pd.DataFrame({"ticker": s_watch}).to_csv(signal_watchlist_file, index=False)
+                    st.success(f"{ns_upper} gespeichert!")
+                    st.rerun()
+
+    # 3. Anzeige der Signale
     for t in s_watch:
         try:
+            # Daten ziehen (tf ist aus der Sidebar)
             sd = yf.download(t, period="2mo", interval=(tf if tf in ["5m", "1h", "1d"] else "1h"), progress=False)
             if not sd.empty:
-                if isinstance(sd.columns, pd.MultiIndex): sd.columns = sd.columns.get_level_values(0)
-                if tf in ["4h", "8h", "12h"]: sd = sd.resample(tf).agg({'Open':'first','High':'max','Low':'min','Close':'last','Volume':'sum'})
+                # Spalten-Fix für yfinance MultiIndex
+                if isinstance(sd.columns, pd.MultiIndex): 
+                    sd.columns = sd.columns.get_level_values(0)
+                
+                # Resampling für 4h, 8h etc.
+                if tf in ["4h", "8h", "12h"]:
+                    sd = sd.resample(tf).agg({'Open':'first','High':'max','Low':'min','Close':'last','Volume':'sum'})
+                
                 sig = calculate_signals(sd)
                 c1, c2, c3, c4, c5, c6 = st.columns([1, 1, 1, 1, 1, 0.5])
                 c1.write(f"**{t}**")
                 c2.write(f"RSI: {sig['rsi']:.1f}")
                 c3.write(f"{sig['sentiment']}")
                 c4.write(f"CVD: {'📈' if sig['cvd'] > 0 else '📉'}")
+                
                 color = "green" if "LONG" in sig['trend'] else "red" if "SHORT" in sig['trend'] else "gray"
                 c5.markdown(f"<div style='background-color:{color}; color:white; padding:5px; text-align:center; border-radius:5px;'>{sig['trend']}</div>", unsafe_allow_html=True)
+                
+                # LÖSCHEN-Button
                 if c6.button("🗑️", key=f"ds_{t}"):
-                    s_watch.remove(t); pd.DataFrame({"ticker": s_watch}).to_csv(signal_watchlist_file, index=False); st.rerun()
-        except: pass
+                    s_watch.remove(t)
+                    pd.DataFrame({"ticker": s_watch}).to_csv(signal_watchlist_file, index=False)
+                    st.rerun()
+        except Exception as e:
+            st.error(f"Fehler bei {t}: {e}")
 
 # --- TAB 3: TERMINAL (KORRIGIERTE VERSION) ---
 with t_multi:
