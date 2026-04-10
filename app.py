@@ -542,7 +542,8 @@ with t_port:
         st.rerun()
 # --- TAB 2: SIGNAL MONITOR ---
 with t_sig:
-    s_watch = pd.read_csv(signal_watchlist_file)['ticker'].tolist() if os.path.exists(signal_watchlist_file) else ["^GDAXI", "BTC-USD", "ETH-USD", "^GSPC","^NDX","^DJI", "KOSPI-3.KS" ]
+    s_watch = pd.read_csv(signal_watchlist_file)['ticker'].tolist() if os.path.exists(signal_watchlist_file) else ["^GDAXI", "BTC-USD", "ETH-USD", "^GSPC","^NDX","^DJI", "KOSPI-3.KS", "^SDAXI", "^MDAXI", "^TECDAX","^RUT", 
+    "^N225", "000300.SS", "GC=F", "SI=F", "BZ=F", "^VIX", "EURTRY=X", "EURUSD=X", "RINF", "^MOVE3M", "^129992-USD-CURW", "DX-Y.NYB",]
     with st.form("s_add"):
         ns = st.text_input("Ticker zur Watchlist speichern:")
         if st.form_submit_button("Add"):
