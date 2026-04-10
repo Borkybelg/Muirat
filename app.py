@@ -324,8 +324,8 @@ if not st.session_state["password_correct"]:
 st.subheader("📊 Global Market Watch")
 
 m_tickers = {
-    "DAX": "^GDAXI", "S&P 500": "^GSPC", "Nasdaq": "^NDX", "Dow Jones": "^DJI", "Kospi": "KOSPI-3.KS" ,
-    "SDAX": "^SDAXI",  "MDAX": "^MDAXI", "TecDAX": "^TECDAX", "ENGLAND":"^FTSE", "FRENCH": "^FCHI", "SPANIEN":"^IBEX" ,"SCHWEIZ":"^SSMI", "Austria":"^ATX" , "ITALIEN":"FTSEMIB.MI", "Russell": "^RUT", 
+    "DAX": "^GDAXI", "S&P 500": "^GSPC", "Nasdaq": "^NDX", "Dow Jones": "^DJI", "Kospi": "KOSPI-3.KS" ,"RUSSLAND":"IMOEX.ME,
+     "SDAX": "^SDAXI",  "MDAX": "^MDAXI", "TecDAX": "^TECDAX", "ENGLAND":"^FTSE", "IRLAND":"^ISEQ", "NORWEGEN" : "^OSEAX", "FRENCH": "^FCHI", "SPANIEN":"^IBEX" ,"SCHWEIZ":"^SSMI", "Austria":"^ATX" , "ITALIEN":"FTSEMIB.MI", "Russell": "^RUT", 
     "Nikkei 225": "^N225",  "CSI300 ": "000300.SS", "IBOVESPA": "^BVSP", "Mexico": "^MXX" ,  "Mexico": "^MXX" ,"BTC-USD": "BTC-USD", "ETH-USD": "ETH-USD", "ETH-EUR": "ETH-EUR", 
     "Gold": "GC=F", "Silber": "SI=F", "BRENT": "BZ=F", "VIX": "^VIX", "EUR/TRY": "EURTRY=X", "EUR/USD": "EURUSD=X", "RINF": "RINF",  "MOVE": "^MOVE3M", "EXY": "^129992-USD-CURW", "DXY": "DX-Y.NYB",
 }
