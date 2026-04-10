@@ -324,11 +324,11 @@ if not st.session_state["password_correct"]:
 st.subheader("📊 Global Market Watch")
 
 m_tickers = {
-    "DAX": "^GDAXI", "S&P 500": "^GSPC", "Nasdaq": "^NDX", "Dow Jones": "^DJI", "Kospi": "KOSPI-3.KS" ,"RUSSLAND":"^RTX", "AUSTRALIEN":"^AXJO","NEUSEELAND":"^NZ50",
+    "DAX": "^GDAXI", "S&P 500": "^GSPC", "Nasdaq": "^NDX", "Dow Jones": "^DJI", "Russell": "^RUT", "Kospi": "KOSPI-3.KS" ,"RUSSLAND":"^RTX", 
      "SDAX": "^SDAXI",  "MDAX": "^MDAXI", "TecDAX": "^TECDAX", "ENGLAND":"^FTSE", "IRLAND":"^ISEQ", "NORWAY 25" : "^BNO25P", "FRENCH": "^FCHI", "SPANIEN":"^IBEX" ,"SCHWEIZ":"^SSMI",
-    "Austria":"^ATX" , "ITALIEN":"FTSEMIB.MI", "Russell": "^RUT", 
-    "Nikkei 225": "^N225",  "CSI300 ": "000300.SS", "SINGAPUR":"^STI", "IBOVESPA": "^BVSP", "Mexico": "^MXX" ,  "Mexico": "^MXX" , "AGYPTEN":"^CASE30", "NIGERIA":"^NGSEINDEX", 
-    "SÜD AFRICA":"^J200.JO","DUBAI ":"DFMGI.AE","ABU DABI":"FTFADGI", "SAUDI ARAB":"^TASI.SR","ISRAEL":"^TA125.TA","BTC-USD": "BTC-USD", "ETH-USD": "ETH-USD", "ETH-EUR": "ETH-EUR", 
+    "Austria":"^ATX" , "ITALIEN":"FTSEMIB.MI", "AUSTRALIEN":"^AXJO","NEUSEELAND":"^NZ50",
+    "Nikkei 225": "^N225",  "CSI300 ": "000300.SS", "SINGAPUR":"^STI", "IBOVESPA": "^BVSP", "Mexico": "^MXX" ,  "Mexico": "^MXX" , "AGYPTEN":"^CASE30", 
+    "SÜD AFRICA":"^J200.JO","DUBAI ":"DFMGI.AE", "SAUDI ARAB":"^TASI.SR","ISRAEL":"^TA125.TA","BTC-USD": "BTC-USD", "ETH-USD": "ETH-USD", "ETH-EUR": "ETH-EUR", 
     "Gold": "GC=F", "Silber": "SI=F", "BRENT": "BZ=F", "VIX": "^VIX", "EUR/TRY": "EURTRY=X", "EUR/USD": "EURUSD=X", "RINF": "RINF",  "MOVE": "^MOVE3M", "EXY": "^129992-USD-CURW", "DXY": "DX-Y.NYB",
 }
 
