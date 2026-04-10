@@ -324,9 +324,9 @@ if not st.session_state["password_correct"]:
 st.subheader("📊 Global Market Watch")
 
 m_tickers = {
-    "DAX": "^GDAXI", "S&P 500": "^GSPC", "Nasdaq": "^NDX", "Dow Jones": "^DJI", "Kospi": "KOSPI-3.KS" ,"RUSSLAND":"IMOEX.ME,
+    "DAX": "^GDAXI", "S&P 500": "^GSPC", "Nasdaq": "^NDX", "Dow Jones": "^DJI", "Kospi": "KOSPI-3.KS" ,"RUSSLAND":"IMOEX.ME", "AUSTRALIEN":"^AXJO","NEUSEELAND":"^NZ50",
      "SDAX": "^SDAXI",  "MDAX": "^MDAXI", "TecDAX": "^TECDAX", "ENGLAND":"^FTSE", "IRLAND":"^ISEQ", "NORWEGEN" : "^OSEAX", "FRENCH": "^FCHI", "SPANIEN":"^IBEX" ,"SCHWEIZ":"^SSMI", "Austria":"^ATX" , "ITALIEN":"FTSEMIB.MI", "Russell": "^RUT", 
-    "Nikkei 225": "^N225",  "CSI300 ": "000300.SS", "IBOVESPA": "^BVSP", "Mexico": "^MXX" ,  "Mexico": "^MXX" ,"BTC-USD": "BTC-USD", "ETH-USD": "ETH-USD", "ETH-EUR": "ETH-EUR", 
+    "Nikkei 225": "^N225",  "CSI300 ": "000300.SS", "SINGAPUR":"^STI", "IBOVESPA": "^BVSP", "Mexico": "^MXX" ,  "Mexico": "^MXX" , "AGYPTEN":"^CASE30", "NIGERIA":"NGSEINDEX.LG", "SÜD AFRICA":"^J200.JO","DUBAI ":"DFMGI.AE","ABU DABI":"^ADI", "SAUDI ARAB":"^TASI.SR","ISRAEL":"^TA125.TA","BTC-USD": "BTC-USD", "ETH-USD": "ETH-USD", "ETH-EUR": "ETH-EUR", 
     "Gold": "GC=F", "Silber": "SI=F", "BRENT": "BZ=F", "VIX": "^VIX", "EUR/TRY": "EURTRY=X", "EUR/USD": "EURUSD=X", "RINF": "RINF",  "MOVE": "^MOVE3M", "EXY": "^129992-USD-CURW", "DXY": "DX-Y.NYB",
 }
 
