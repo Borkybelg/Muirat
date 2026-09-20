@@ -329,7 +329,7 @@ m_tickers = {
     "Austria":"^ATX" , "ITALIEN":"FTSEMIB.MI", "AUSTRALIEN":"^AXJO","NEUSEELAND":"^NZ50",
     "Nikkei 225": "^N225",  "CSI300 ": "000300.SS", "SINGAPUR":"^STI", "IBOVESPA": "^BVSP", "Mexico": "^MXX" ,  "Mexico": "^MXX" ,"ARGENTIN ":"^MERV", "AGYPTEN":"^CASE30", 
     "SÜD AFRICA":"^J200.JO","DUBAI ":"DFMGI.AE", "SAUDI ARAB":"^TASI.SR","ISRAEL":"^TA125.TA","BTC-USD": "BTC-USD", "ETH-USD": "ETH-USD", "ETH-EUR": "ETH-EUR", 
-    "Gold": "GC=F", "Silber": "SI=F", "BRENT": "BZ=F", "VIX": "^VIX", "EUR/TRY": "EURTRY=X", "EUR/USD": "EURUSD=X", "RINF": "RINF",  "MOVE": "^MOVE3M", "EXY": "^129992-USD-CURW", "DXY": "DX-Y.NYB",
+    "Gold": "GC=F", "Silber": "SI=F", "BRENT": "BZ=F", "VIX": "^VIX", "EUR/TRY": "EURTRY=X", "EUR/USD": "EURUSD=X","USDGBP": "USDGBP=X", "RINF": "RINF",  "MOVE": "^MOVE3M", "EXY": "^129992-USD-CURW", "DXY": "DX-Y.NYB",
 }
 
 m_cols = st.columns(8)
