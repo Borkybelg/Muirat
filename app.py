@@ -324,7 +324,7 @@ if not st.session_state["password_correct"]:
 st.subheader("📊 Global Market Watch")
 
 m_tickers = {
-    "DAX": "^GDAXI", "S&P 500": "^GSPC", "Nasdaq": "^NDX", "Dow Jones": "^DJI", "Russell": "^RUT", "Kospi": "KOSPI-3.KS" ,"RUSSLAND":"^RTX", 
+    "DAX": "^GDAXI", "S&P 500": "^GSPC", "Nasdaq": "^NDX", "Dow Jones": "^DJI", "Russell": "^RUT","Bist":"XU100.IS", "Kospi": "KOSPI-3.KS" ,"RUSSLAND":"^RTX", 
      "SDAX": "^SDAXI",  "MDAX": "^MDAXI", "TecDAX": "^TECDAX", "ENGLAND":"^FTSE", "IRLAND":"^ISEQ", "NORWAY 25" : "^BNO25P", "FRENCH": "^FCHI", "SPANIEN":"^IBEX" ,"SCHWEIZ":"^SSMI",
     "Austria":"^ATX" , "ITALIEN":"FTSEMIB.MI", "AUSTRALIEN":"^AXJO","NEUSEELAND":"^NZ50",
     "Nikkei 225": "^N225",  "CSI300 ": "000300.SS", "SINGAPUR":"^STI", "IBOVESPA": "^BVSP", "Mexico": "^MXX" ,  "Mexico": "^MXX" ,"ARGENTIN ":"^MERV", "AGYPTEN":"^CASE30", 
