@@ -325,7 +325,7 @@ st.subheader("📊 Global Market Watch")
 
 m_tickers = {
     "DAX": "^GDAXI", "S&P 500": "^GSPC", "Nasdaq": "^NDX", "Dow Jones": "^DJI", "Russell": "^RUT","Bist":"XU100.IS", "Kospi": "KOSPI-3.KS" ,"RUSSLAND":"^RTX", 
-     "SDAX": "^SDAXI",  "MDAX": "^MDAXI", "TecDAX": "^TECDAX", "ENGLAND":"^FTSE", "IRLAND":"^ISEQ", "NORWAY 25" : "^BNO25P", "FRENCH": "^FCHI", "SPANIEN":"^IBEX" ,"SCHWEIZ":"^SSMI",
+     "SDAX": "^SDAXI",  "MDAX": "^MDAXI", "TecDAX": "^TECDAX","EUROSTOXX": "^N100","ENGLAND":"^FTSE", "IRLAND":"^ISEQ", "NORWAY 25" : "^BNO25P", "FRENCH": "^FCHI", "SPANIEN":"^IBEX" ,"SCHWEIZ":"^SSMI",
     "Austria":"^ATX" , "ITALIEN":"FTSEMIB.MI", "AUSTRALIEN":"^AXJO","NEUSEELAND":"^NZ50",
     "Nikkei 225": "^N225",  "CSI300 ": "000300.SS", "SINGAPUR":"^STI", "IBOVESPA": "^BVSP", "Mexico": "^MXX" ,  "Mexico": "^MXX" ,"ARGENTIN ":"^MERV", "AGYPTEN":"^CASE30", 
     "SÜD AFRICA":"^J200.JO","DUBAI ":"DFMGI.AE", "SAUDI ARAB":"^TASI.SR","ISRAEL":"^TA125.TA","BTC-USD": "BTC-USD", "ETH-USD": "ETH-USD", "ETH-EUR": "ETH-EUR", 
